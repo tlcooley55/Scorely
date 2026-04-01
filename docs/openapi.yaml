@@ -1,0 +1,1174 @@
+openapi: 3.0.3
+info:
+  title: Scorely API
+  version: 1.0.0
+  description: |
+    REST API for Scorely, a social music rating platform.
+
+    This API is designed so the client never connects to PostgreSQL directly.
+    Authentication is handled via bearer tokens, and the API enforces ownership
+    rules server-side.
+
+    Core resources:
+      - profiles
+      - songs
+      - ratings
+      - bookmarks
+      - friends
+      - searches
+
+servers:
+  - url: https://api.scorely.example.com/v1
+    description: Production
+  - url: http://localhost:3000/v1
+    description: Local development
+
+tags:
+  - name: Profiles
+  - name: Songs
+  - name: Ratings
+  - name: Bookmarks
+  - name: Friends
+  - name: Searches
+  - name: Activity
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+
+  /profiles:
+    get:
+      tags: [Profiles]
+      summary: List profiles
+      description: Returns profiles, optionally filtered by username.
+      parameters:
+        - in: query
+          name: username
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Profiles retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileListResponse'
+    post:
+      tags: [Profiles]
+      summary: Create profile for authenticated user
+      description: |
+        Creates a profile tied to the authenticated user. The server should derive
+        user_id from the bearer token rather than trusting a client-supplied value.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileCreateRequest'
+      responses:
+        '201':
+          description: Profile created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /profiles/me:
+    get:
+      tags: [Profiles]
+      summary: Get my profile
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Profiles]
+      summary: Update my profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdateRequest'
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /profiles/{userId}:
+    get:
+      tags: [Profiles]
+      summary: Get a profile by user ID
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Profile found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Profiles]
+      summary: Delete my profile
+      description: |
+        Deletes the authenticated user's profile. The server should reject attempts
+        to delete another user's profile.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '204':
+          description: Profile deleted
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /songs:
+    get:
+      tags: [Songs]
+      summary: List or search songs
+      parameters:
+        - in: query
+          name: q
+          description: Search text against title and artist
+          schema:
+            type: string
+        - in: query
+          name: artist
+          schema:
+            type: string
+        - in: query
+          name: genre
+          schema:
+            type: string
+        - in: query
+          name: releaseYear
+          schema:
+            type: integer
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Songs retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SongListResponse'
+    post:
+      tags: [Songs]
+      summary: Create a song
+      description: Creates a song record in the application database.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SongCreateRequest'
+      responses:
+        '201':
+          description: Song created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Song'
+
+  /songs/{songId}:
+    get:
+      tags: [Songs]
+      summary: Get a song by ID
+      parameters:
+        - $ref: '#/components/parameters/SongId'
+      responses:
+        '200':
+          description: Song found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SongDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Songs]
+      summary: Update a song
+      parameters:
+        - $ref: '#/components/parameters/SongId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SongUpdateRequest'
+      responses:
+        '200':
+          description: Song updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Song'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Songs]
+      summary: Delete a song
+      parameters:
+        - $ref: '#/components/parameters/SongId'
+      responses:
+        '204':
+          description: Song deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /ratings:
+    get:
+      tags: [Ratings]
+      summary: List ratings
+      parameters:
+        - in: query
+          name: userId
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: songId
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: minRating
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+        - in: query
+          name: maxRating
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Ratings retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RatingListResponse'
+    post:
+      tags: [Ratings]
+      summary: Create a rating
+      description: |
+        Creates a rating for the authenticated user. The server derives user_id from
+        the token. Since each user may only rate a song once, creating a duplicate
+        should return 409 or be handled as an upsert if you choose that behavior. 
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RatingCreateRequest'
+      responses:
+        '201':
+          description: Rating created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rating'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /ratings/{ratingId}:
+    get:
+      tags: [Ratings]
+      summary: Get a rating by ID
+      parameters:
+        - $ref: '#/components/parameters/RatingId'
+      responses:
+        '200':
+          description: Rating found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rating'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Ratings]
+      summary: Update a rating
+      description: Only the owner may update the rating.
+      parameters:
+        - $ref: '#/components/parameters/RatingId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RatingUpdateRequest'
+      responses:
+        '200':
+          description: Rating updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rating'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Ratings]
+      summary: Delete a rating
+      description: Only the owner may delete the rating.
+      parameters:
+        - $ref: '#/components/parameters/RatingId'
+      responses:
+        '204':
+          description: Rating deleted
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /me/ratings:
+    get:
+      tags: [Ratings]
+      summary: Get my rating history
+      parameters:
+        - in: query
+          name: minRating
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+        - in: query
+          name: sort
+          schema:
+            type: string
+            enum: [created_at, rating_value]
+            default: created_at
+        - in: query
+          name: order
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Current user's ratings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RatingListResponse'
+
+  /songs/{songId}/ratings:
+    get:
+      tags: [Ratings]
+      summary: List ratings for a song
+      parameters:
+        - $ref: '#/components/parameters/SongId'
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Song ratings retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RatingListResponse'
+
+  /bookmarks:
+    get:
+      tags: [Bookmarks]
+      summary: List my bookmarks
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Bookmarks retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookmarkListResponse'
+    post:
+      tags: [Bookmarks]
+      summary: Create a bookmark
+      description: Creates a bookmark for the authenticated user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookmarkCreateRequest'
+      responses:
+        '201':
+          description: Bookmark created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bookmark'
+
+  /bookmarks/{bookmarkId}:
+    get:
+      tags: [Bookmarks]
+      summary: Get a bookmark by ID
+      parameters:
+        - $ref: '#/components/parameters/BookmarkId'
+      responses:
+        '200':
+          description: Bookmark found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bookmark'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Bookmarks]
+      summary: Delete a bookmark
+      parameters:
+        - $ref: '#/components/parameters/BookmarkId'
+      responses:
+        '204':
+          description: Bookmark deleted
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /friends:
+    get:
+      tags: [Friends]
+      summary: List users I follow
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Follow relationships retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FriendListResponse'
+    post:
+      tags: [Friends]
+      summary: Follow a user
+      description: |
+        Creates a one-way follow relationship using the friends table
+        (`user_id` follows `friend_user_id`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FriendCreateRequest'
+      responses:
+        '201':
+          description: Follow created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Friend'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /friends/{friendId}:
+    get:
+      tags: [Friends]
+      summary: Get a follow relationship by ID
+      parameters:
+        - $ref: '#/components/parameters/FriendId'
+      responses:
+        '200':
+          description: Follow relationship found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Friend'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Friends]
+      summary: Unfollow a user
+      parameters:
+        - $ref: '#/components/parameters/FriendId'
+      responses:
+        '204':
+          description: Follow relationship deleted
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /profiles/{userId}/followers:
+    get:
+      tags: [Friends]
+      summary: List followers of a profile
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Followers retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FriendListResponse'
+
+  /searches:
+    get:
+      tags: [Searches]
+      summary: List my search history
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Search history retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchListResponse'
+    post:
+      tags: [Searches]
+      summary: Log a search query
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchCreateRequest'
+      responses:
+        '201':
+          description: Search log created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Search'
+
+  /searches/{searchId}:
+    get:
+      tags: [Searches]
+      summary: Get a search log by ID
+      parameters:
+        - $ref: '#/components/parameters/SearchId'
+      responses:
+        '200':
+          description: Search log found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Search'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Searches]
+      summary: Delete a search log
+      parameters:
+        - $ref: '#/components/parameters/SearchId'
+      responses:
+        '204':
+          description: Search log deleted
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /activity/feed:
+    get:
+      tags: [Activity]
+      summary: Get my activity feed
+      description: Returns recent rating activity from users the current user follows.
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Activity feed retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityFeedResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    UserId:
+      in: path
+      name: userId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SongId:
+      in: path
+      name: songId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RatingId:
+      in: path
+      name: ratingId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    BookmarkId:
+      in: path
+      name: bookmarkId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    FriendId:
+      in: path
+      name: friendId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SearchId:
+      in: path
+      name: searchId
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Operation not allowed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Conflict with existing data or uniqueness constraint
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    UnprocessableEntity:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+        code:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+    Pagination:
+      type: object
+      required: [limit, offset, count]
+      properties:
+        limit:
+          type: integer
+        offset:
+          type: integer
+        count:
+          type: integer
+
+    Profile:
+      type: object
+      required: [user_id, username, created_at]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    ProfileCreateRequest:
+      type: object
+      required: [username]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+
+    ProfileUpdateRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+
+    ProfileListResponse:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Profile'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    Song:
+      type: object
+      required: [song_id, title, artist, created_at]
+      properties:
+        song_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        artist:
+          type: string
+        album_art:
+          type: string
+          nullable: true
+          format: uri
+        genre:
+          type: string
+          nullable: true
+        release_year:
+          type: integer
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    SongDetail:
+      allOf:
+        - $ref: '#/components/schemas/Song'
+        - type: object
+          properties:
+            aggregate_rating:
+              type: number
+              format: float
+              nullable: true
+            rating_count:
+              type: integer
+
+    SongCreateRequest:
+      type: object
+      required: [title, artist]
+      properties:
+        title:
+          type: string
+        artist:
+          type: string
+        album_art:
+          type: string
+          format: uri
+        genre:
+          type: string
+        release_year:
+          type: integer
+
+    SongUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        artist:
+          type: string
+        album_art:
+          type: string
+          format: uri
+        genre:
+          type: string
+        release_year:
+          type: integer
+
+    SongListResponse:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Song'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    Rating:
+      type: object
+      required: [rating_id, user_id, song_id, rating_value, created_at]
+      properties:
+        rating_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        song_id:
+          type: string
+          format: uuid
+        rating_value:
+          type: integer
+          minimum: 1
+          maximum: 5
+        review:
+          type: string
+          nullable: true
+          maxLength: 1000
+        created_at:
+          type: string
+          format: date-time
+
+    RatingCreateRequest:
+      type: object
+      required: [song_id, rating_value]
+      properties:
+        song_id:
+          type: string
+          format: uuid
+        rating_value:
+          type: integer
+          minimum: 1
+          maximum: 5
+        review:
+          type: string
+          maxLength: 1000
+
+    RatingUpdateRequest:
+      type: object
+      properties:
+        rating_value:
+          type: integer
+          minimum: 1
+          maximum: 5
+        review:
+          type: string
+          nullable: true
+          maxLength: 1000
+
+    RatingListResponse:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Rating'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    Bookmark:
+      type: object
+      required: [bookmark_id, user_id, song_id, created_at]
+      properties:
+        bookmark_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        song_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    BookmarkCreateRequest:
+      type: object
+      required: [song_id]
+      properties:
+        song_id:
+          type: string
+          format: uuid
+
+    BookmarkListResponse:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Bookmark'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    Friend:
+      type: object
+      required: [friend_id, user_id, friend_user_id, created_at]
+      properties:
+        friend_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        friend_user_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    FriendCreateRequest:
+      type: object
+      required: [friend_user_id]
+      properties:
+        friend_user_id:
+          type: string
+          format: uuid
+
+    FriendListResponse:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Friend'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    Search:
+      type: object
+      required: [search_id, user_id, query, searched_at]
+      properties:
+        search_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        query:
+          type: string
+        searched_at:
+          type: string
+          format: date-time
+
+    SearchCreateRequest:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+          minLength: 1
+          maxLength: 255
+
+    SearchListResponse:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Search'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ActivityItem:
+      type: object
+      required: [rating_id, user_id, username, song_id, song_title, artist, rating_value, created_at]
+      properties:
+        rating_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        song_id:
+          type: string
+          format: uuid
+        song_title:
+          type: string
+        artist:
+          type: string
+        rating_value:
+          type: integer
+          minimum: 1
+          maximum: 5
+        review:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    ActivityFeedResponse:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityItem'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
