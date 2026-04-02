@@ -1,0 +1,111 @@
+After Interview #2 and client feedback, several updates were made to focus and simplify Scorely. The app now only tracks songs, removing albums and artists as separate features, while still showing song details like artist and release year.
+The rating system was clarified: users can have one rating per song, and edits overwrite previous ratings, simplifying data management.
+New features include bookmarking songs and tracking search history to improve usability. The friends feature remains, allowing users to view friends’ recent activity, but complex social features were removed.
+Some features were removed to simplify the app, including notifications, trending songs, and playlists.
+Finally, the data model was updated, adding entities like Bookmark and Search, and clarifying relationships and business rules, such as rating limits and unique user emails. These changes align the system with the client’s expectations while keeping it feasible to build.
+1. Strategy (Revised)
+Updated Project Summary
+Scorely is a social music rating app where users can rate songs, write short reviews, and keep track of what they’ve listened to. Instead of streaming music, the main goal of the app is to let users organize their opinions on songs and see what their friends are listening to.
+After the second interview, the system was simplified to focus only on songs instead of including albums and artists. This makes the app easier to use and develop.
+Users will be able to:
+● Search for songs
+● Rate songs from 1–5 stars
+● Write optional reviews
+● View their rating history
+● Bookmark songs
+● Add friends and view their activity
+The app is meant to be simple and manual, meaning users search for songs themselves instead of the system automatically tracking what they listen to.
+User Constituencies
+Personal Users (Jane): These users mainly care about tracking and organizing their own music. They will use features like ratings, history, and bookmarks.
+Social Users (Jake): These users care more about interacting with friends and discovering music through them. They will use features like profiles and friend activity.
+Usage Contexts
+Scorely will mostly be used on phones or laptops in everyday situations like at home or during free time. Users will usually open the app to rate a song, look at their past ratings, or check what their friends have been listening to.
+The app requires an internet connection, and song data will come from public databases or AI since it is not connected to platforms like Spotify.
+2. Scope (Refined) Feature Chart
+Songs
+● View Song Details – See all information about a song, including title, artist, album art, release year, and optionally the genre.
+Search
+● Search Users – Find other users by name or username to view their profiles and activities.
+● Search Songs – Look up songs by title, artist, or other available information.
+● View Search History – See a list of previous searches for easy reference or repeat actions.
+Account
+● Create Account – Register a new user account to save ratings, reviews, bookmarks, and personal data.
+● Login – Access your existing account to view personal data and interact with the app.
+● View Profile – See your profile information, top-rated songs, rating history, bookmarks, and activity.
+Friends
+● Add Friends – Send friend requests or connect with other users to see their activities.
+● View Friends List – See a list of all your current friends.
+● View Friend Profile – Access a friend’s profile to view their ratings, top songs, and activity.
+● View Friend Activity – Track recent ratings or reviews of your friends to discover new music.
+Ratings
+● Rate Songs – Assign a numerical rating (1–5) to a song to record your opinion.
+● Write Reviews – Add an optional short text review along with a song rating.(max: 500ch)
+● Edit Reviews – Update an existing review or rating if your opinion changes.
+● View Rating History – See a list of all your past ratings and reviews.
+Bookmarks
+● Bookmark Song – Save a song for easy access later.
+● View Bookmarks – See all songs you have bookmarked for future reference.
+User Stories
+1. As a user, I want to create an account so I can save my ratings.
+2. As a user, I want to search for songs so I can find music to rate.
+3. As a user, I want to rate a song so I can record my opinion.
+4. As a user, I want to write a short review so I can express my thoughts.
+5. As a user, I want to edit my rating so I can update my opinion over time.
+6. As a user, I want to view my rating history so I can see what I’ve rated.
+7. As a user, I want to bookmark songs so I can come back to them later.
+8. As a user, I want to view a friend’s profile so I can see their ratings.
+9. As a user, I want to see my friends’ recent activity so I can discover new music.
+3. Structure (Expanded)
+a. Domain Model Narrative
+Scorely tracks six main entities: User, Song, Rating, Bookmark, Friend, and Search.
+Entity Relationships:
+● User → Rating (1:N): Each user can rate many songs, each rating belongs to one user.
+● Song → Rating (1:N): Each song can have many ratings, each rating references one song.
+● User ↔ Bookmark (M:N via Bookmark): Users can bookmark multiple songs, songs can be bookmarked by multiple users.
+● User ↔ Friend (M:N via Friend): Users can have multiple friends, each friend is also a user.
+● User → Search (1:N): Each user has multiple search queries.
+Business Rules / Constraints:
+● Each user may rate a song only once, updates overwrite previous rating.
+● Ratings must be 1–5 stars, reviews are optional.
+● Top songs are calculated dynamically from ratings, not stored separately.
+● Each user must have a unique email.
+● All users share the same permissions, no roles beyond the standard user.
+● Privacy and visibility are implicit, no additional settings in the database.
+b. ERD (Entity-Relationship Diagram)
+c. Data Schema Document
+Entity: User
+● user_id (PK, UUID)
+● username (string)
+● email (string, unique)
+● password (string)
+● created_at (timestamp)
+Entity: Song
+● song_id (PK, UUID)
+● title (string)
+● artist (string)
+● album_art (string/url)
+● genre (string, optional)
+● release_year (integer, optional)
+Entity: Rating
+● rating_id (PK, UUID)
+● user_id (FK → User)
+● song_id (FK → Song)
+● rating_value (integer, 1–5)
+● review (string, optional)
+● created_at (timestamp)
+Constraint: Each user can only rate a song once (user_id + song_id must be unique).
+Entity: Bookmark
+● bookmark_id (PK, UUID)
+● user_id (FK → User)
+● song_id (FK → Song)
+● created_at (timestamp)
+Entity: Friend
+● friend_id (PK, UUID)
+● user_id (FK → User)
+● friend_user_id (FK → User)
+● created_at (timestamp)
+Entity: Search
+● search_id (PK, UUID)
+● user_id (FK → User)
+● query (string)
+● searched_at (timestamp)
