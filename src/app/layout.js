@@ -9,6 +9,12 @@ function Nav() {
       {' | '}
       <a href="/songs">Songs</a>
       {' | '}
+      <a href="/ratings">Ratings</a>
+      {' | '}
+      <a href="/bookmarks">Bookmarks</a>
+      {' | '}
+      <a href="/searches">Search History</a>
+      {' | '}
       <a href="/activity">Activity</a>
       {' | '}
       <a href="/friends">Friends</a>

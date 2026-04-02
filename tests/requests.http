@@ -1,0 +1,73 @@
+### Scorely API requests (VS Code / JetBrains HTTP client)
+@baseUrl = http://localhost:3000/v1
+
+### Health
+GET {{baseUrl}}/health
+
+### Create Song
+POST {{baseUrl}}/songs
+Content-Type: application/json
+
+{
+  "title": "HTTP Client Song",
+  "artist": "HTTP Client Artist",
+  "album_art": null,
+  "genre": null,
+  "release_year": 2026
+}
+
+### List Songs
+GET {{baseUrl}}/songs?limit=10&offset=0
+
+### Get Song Detail (set your id)
+@songId = aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+GET {{baseUrl}}/songs/{{songId}}
+
+### Create Rating (requires auth in production; works with DEV_BYPASS_AUTH)
+POST {{baseUrl}}/ratings
+Content-Type: application/json
+
+{
+  "song_id": "{{songId}}",
+  "rating_value": 5,
+  "review": "Great track"
+}
+
+### My Ratings
+GET {{baseUrl}}/me/ratings
+
+### Bookmark Song
+POST {{baseUrl}}/bookmarks
+Content-Type: application/json
+
+{
+  "song_id": "{{songId}}"
+}
+
+### My Bookmarks
+GET {{baseUrl}}/bookmarks
+
+### Update My Profile
+PATCH {{baseUrl}}/me/profile
+Content-Type: application/json
+
+{
+  "username": "http_client_user"
+}
+
+### Get My Profile
+GET {{baseUrl}}/me/profile
+
+### Log Search
+POST {{baseUrl}}/searches
+Content-Type: application/json
+
+{
+  "query": "synthwave 2021"
+}
+
+### My Search History
+GET {{baseUrl}}/searches
+
+### Activity Feed
+GET {{baseUrl}}/activity/feed
