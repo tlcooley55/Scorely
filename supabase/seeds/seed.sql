@@ -3,6 +3,7 @@ begin;
 -- Clean existing sample data
 truncate table public.friends restart identity;
 truncate table public.bookmarks restart identity;
+truncate table public.top_songs restart identity;
 truncate table public.ratings restart identity;
 truncate table public.searches restart identity;
 truncate table public.profiles restart identity;
@@ -30,6 +31,13 @@ values
   ('e2222222-2222-4222-8222-222222222222', '11111111-1111-4111-8111-111111111111', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 4, 'Really solid—perfect for late afternoon.', now()),
   ('e3333333-3333-4333-8333-333333333333', '22222222-2222-4222-8222-222222222222', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 3, null, now()),
   ('e4444444-4444-4444-8444-444444444444', '33333333-3333-4333-8333-333333333333', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', 2, 'Not my style, but I can see the appeal.', now());
+
+-- Sample Top 5 songs (manual selection ordered by position)
+insert into public.top_songs (top_song_id, user_id, song_id, position, created_at)
+values
+  ('c1111111-1111-4111-8111-111111111111', '11111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 1, now()),
+  ('c2222222-2222-4222-8222-222222222222', '11111111-1111-4111-8111-111111111111', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 2, now()),
+  ('c3333333-3333-4333-8333-333333333333', '22222222-2222-4222-8222-222222222222', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 1, now());
 
 -- Sample bookmarks
 insert into public.bookmarks (bookmark_id, user_id, song_id, created_at)

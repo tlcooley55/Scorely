@@ -13,6 +13,7 @@ const bookmarksRoutes = require('./routes/bookmarks')
 const friendsRoutes = require('./routes/friends')
 const searchesRoutes = require('./routes/searches')
 const activityRoutes = require('./routes/activity')
+const { meTopSongsRouter, profilesTopSongsRouter } = require('./routes/top_songs')
 
 function createApp() {
   const app = express()
@@ -34,6 +35,8 @@ function createApp() {
   app.use('/v1/friends', friendsRoutes)
   app.use('/v1/searches', searchesRoutes)
   app.use('/v1/activity', activityRoutes)
+  app.use('/v1/me/top-songs', meTopSongsRouter)
+  app.use('/v1/profiles', profilesTopSongsRouter)
 
   app.use(notFoundHandler)
   app.use(errorHandler)

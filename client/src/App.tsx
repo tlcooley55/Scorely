@@ -1,120 +1,606 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 
+import { apiFetch, getApiBase } from './lib/api'
+
+type Song = {
+  song_id: string
+  title: string
+  artist: string
+  album_art?: string | null
+  genre?: string | null
+  release_year?: number | null
+}
+
+type Rating = {
+  rating_id: string
+  user_id: string
+  song_id: string
+  rating_value: number
+  review?: string | null
+  created_at: string
+}
+
+type TopSong = {
+  top_song_id: string
+  user_id: string
+  song_id: string
+  position: number
+  created_at: string
+  songs?: Song
+}
+
+type Profile = {
+  user_id: string
+  username: string
+  created_at: string
+}
+
+type ApiListResponse<T> = {
+  data: T[]
+}
+
+type ApiItemResponse<T> = T
+
+function clampInt(value: unknown, min: number, max: number): number {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return min
+  return Math.min(max, Math.max(min, Math.trunc(n)))
+}
+
+function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: string }) {
+  return (
+    <button className={active ? 'tab active' : 'tab'} onClick={onClick} type="button">
+      {children}
+    </button>
+  )
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="field">
+      <span className="label">{label}</span>
+      {children}
+    </label>
+  )
+}
+
+function Divider() {
+  return <hr className="divider" />
+}
+
 function App() {
-  const [count, setCount] = useState(0)
+  const [activeTab, setActiveTab] = useState<'home' | 'search' | 'friends' | 'profile'>('home')
+  const [selectedSongId, setSelectedSongId] = useState<string | null>(null)
+  const [globalError, setGlobalError] = useState<string | null>(null)
+
+  const apiBase = useMemo(() => getApiBase(), [])
+
+  useEffect(() => {
+    setGlobalError(null)
+  }, [activeTab])
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="app">
+      <header className="header">
+        <div className="brand">
+          <div className="brandTitle">Scorely</div>
+          <div className="brandSubtitle">API: {apiBase}</div>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
+        <nav className="tabs">
+          <TabButton active={activeTab === 'home'} onClick={() => setActiveTab('home')}>
+            Home
+          </TabButton>
+          <TabButton
+            active={activeTab === 'search'}
+            onClick={() => {
+              setSelectedSongId(null)
+              setActiveTab('search')
+            }}
+          >
+            Search
+          </TabButton>
+          <TabButton active={activeTab === 'friends'} onClick={() => setActiveTab('friends')}>
+            Friends
+          </TabButton>
+          <TabButton active={activeTab === 'profile'} onClick={() => setActiveTab('profile')}>
+            Profile
+          </TabButton>
+        </nav>
+      </header>
+
+      {globalError ? <div className="error">{globalError}</div> : null}
+
+      <main className="main">
+        {activeTab === 'home' ? <HomeView onError={setGlobalError} /> : null}
+        {activeTab === 'search' ? (
+          selectedSongId ? (
+            <SongDetailView songId={selectedSongId} onBack={() => setSelectedSongId(null)} onError={setGlobalError} />
+          ) : (
+            <SearchView onSelectSong={(id) => setSelectedSongId(id)} onError={setGlobalError} />
+          )
+        ) : null}
+        {activeTab === 'friends' ? <FriendsView onError={setGlobalError} /> : null}
+        {activeTab === 'profile' ? <ProfileView onError={setGlobalError} /> : null}
+      </main>
+    </div>
+  )
+}
+
+function HomeView({ onError }: { onError: (msg: string | null) => void }) {
+  const [health, setHealth] = useState<unknown>(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      onError(null)
+      try {
+        const data = await apiFetch('/health')
+        if (!cancelled) setHealth(data)
+      } catch (err) {
+        if (!cancelled) onError(err instanceof Error ? err.message : String(err))
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [onError])
+
+  return (
+    <section className="panel">
+      <h1>Home</h1>
+      <p>
+        Search → Rate → Save → Discover through friends. Ratings & reviews are combined directly on the Song Detail
+        screen.
+      </p>
+      <Divider />
+      <h2>Status</h2>
+      {loading ? <div>Loading…</div> : <pre className="pre">{JSON.stringify(health, null, 2)}</pre>}
+    </section>
+  )
+}
+
+function SearchView({
+  onSelectSong,
+  onError,
+}: {
+  onSelectSong: (songId: string) => void
+  onError: (msg: string | null) => void
+}) {
+  const [q, setQ] = useState('')
+  const [results, setResults] = useState<Song[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const [newTitle, setNewTitle] = useState('')
+  const [newArtist, setNewArtist] = useState('')
+  const [creating, setCreating] = useState(false)
+
+  async function runSearch() {
+    setLoading(true)
+    onError(null)
+    try {
+      const qs = q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ''
+      const resp = await apiFetch<ApiListResponse<Song>>(`/songs${qs}`)
+      setResults(resp.data)
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function createSong() {
+    setCreating(true)
+    onError(null)
+    try {
+      const payload = { title: newTitle.trim(), artist: newArtist.trim() }
+      const created = await apiFetch<ApiItemResponse<Song>>('/songs', { method: 'POST', body: payload })
+      setNewTitle('')
+      setNewArtist('')
+      onSelectSong(created.song_id)
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  return (
+    <section className="panel">
+      <h1>Search</h1>
+      <div className="row">
+        <input
+          className="input"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search by title or artist…"
+        />
+        <button className="btn" type="button" onClick={runSearch} disabled={loading}>
+          {loading ? 'Searching…' : 'Search'}
         </button>
-      </section>
+      </div>
 
-      <div className="ticks"></div>
+      <Divider />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+      <h2>Results</h2>
+      {results.length === 0 ? <div className="muted">No results yet.</div> : null}
+      <div className="list">
+        {results.map((s) => (
+          <button key={s.song_id} className="listItem" onClick={() => onSelectSong(s.song_id)} type="button">
+            <div className="title">{s.title}</div>
+            <div className="subtitle">{s.artist}</div>
+            <div className="muted">{s.song_id}</div>
+          </button>
+        ))}
+      </div>
+
+      <Divider />
+
+      <h2>Add a song (inline)</h2>
+      <div className="grid">
+        <Field label="Title">
+          <input className="input" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
+        </Field>
+        <Field label="Artist">
+          <input className="input" value={newArtist} onChange={(e) => setNewArtist(e.target.value)} />
+        </Field>
+      </div>
+      <button className="btn" type="button" onClick={createSong} disabled={creating || !newTitle.trim() || !newArtist.trim()}>
+        {creating ? 'Creating…' : 'Create + Rate'}
+      </button>
+    </section>
+  )
+}
+
+function SongDetailView({
+  songId,
+  onBack,
+  onError,
+}: {
+  songId: string
+  onBack: () => void
+  onError: (msg: string | null) => void
+}) {
+  const [song, setSong] = useState<Song | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const [ratingValue, setRatingValue] = useState(5)
+  const [review, setReview] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      onError(null)
+      try {
+        const data = await apiFetch<ApiItemResponse<Song>>(`/songs/${encodeURIComponent(songId)}`)
+        if (!cancelled) setSong(data)
+      } catch (err) {
+        if (!cancelled) onError(err instanceof Error ? err.message : String(err))
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [songId, onError])
+
+  async function saveRating() {
+    setSaving(true)
+    onError(null)
+    try {
+      const payload = {
+        song_id: songId,
+        rating_value: clampInt(ratingValue, 1, 5),
+        review: review.trim() ? review.trim() : null,
+      }
+
+      try {
+        await apiFetch<ApiItemResponse<Rating>>('/ratings', { method: 'POST', body: payload })
+        return
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        if (!msg.includes('409')) throw err
+      }
+
+      const mine = await apiFetch<ApiListResponse<Rating>>('/me/ratings?limit=100')
+      const existing = mine.data.find((r) => r.song_id === songId)
+      if (!existing) throw new Error('Could not locate existing rating to update')
+
+      await apiFetch<ApiItemResponse<Rating>>(`/ratings/${existing.rating_id}`, {
+        method: 'PATCH',
+        body: { rating_value: payload.rating_value, review: payload.review },
+      })
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <section className="panel">
+      <div className="row spaceBetween">
+        <h1>Song Detail</h1>
+        <button className="btn secondary" type="button" onClick={onBack}>
+          Back
+        </button>
+      </div>
+
+      {loading ? <div>Loading…</div> : null}
+      {song ? (
+        <>
+          <div className="songHeader">
+            {song.album_art ? <img className="albumArt" src={song.album_art} alt="" /> : null}
+            <div>
+              <div className="title">{song.title}</div>
+              <div className="subtitle">{song.artist}</div>
+              {song.release_year ? <div className="muted">{song.release_year}</div> : null}
+            </div>
+          </div>
+
+          <Divider />
+
+          <h2>Rating + Review</h2>
+          <div className="grid">
+            <Field label="Stars (1–5)">
+              <input
+                className="input"
+                type="number"
+                min={1}
+                max={5}
+                value={ratingValue}
+                onChange={(e) => setRatingValue(Number(e.target.value))}
+              />
+            </Field>
+            <Field label="Review (optional, max 500 chars)">
+              <textarea className="textarea" value={review} maxLength={500} onChange={(e) => setReview(e.target.value)} />
+            </Field>
+          </div>
+
+          <button className="btn" type="button" onClick={saveRating} disabled={saving}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </>
+      ) : null}
+    </section>
+  )
+}
+
+function FriendsView({ onError }: { onError: (msg: string | null) => void }) {
+  const [ok, setOk] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      onError(null)
+      try {
+        await apiFetch('/friends?limit=1')
+        if (!cancelled) setOk(true)
+      } catch (err) {
+        if (!cancelled) {
+          setOk(false)
+          onError(err instanceof Error ? err.message : String(err))
+        }
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [onError])
+
+  return (
+    <section className="panel">
+      <h1>Friends</h1>
+      <p className="muted">This view will list friends and their activity. Kept minimal for now.</p>
+      <Divider />
+      <div>Friends API reachable: {ok === null ? '…' : ok ? 'yes' : 'no'}</div>
+    </section>
+  )
+}
+
+function ProfileView({ onError }: { onError: (msg: string | null) => void }) {
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [username, setUsername] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const [topSongs, setTopSongs] = useState<TopSong[]>([])
+  const [loadingTop, setLoadingTop] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      onError(null)
+      try {
+        const me = await apiFetch<ApiItemResponse<Profile>>('/me/profile')
+        if (!cancelled) {
+          setProfile(me)
+          setUsername(me.username ?? '')
+        }
+      } catch (err) {
+        if (!cancelled) onError(err instanceof Error ? err.message : String(err))
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [onError])
+
+  async function loadTopSongs() {
+    setLoadingTop(true)
+    onError(null)
+    try {
+      const resp = await apiFetch<ApiListResponse<TopSong>>('/me/top-songs')
+      setTopSongs(resp.data)
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setLoadingTop(false)
+    }
+  }
+
+  useEffect(() => {
+    loadTopSongs()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function saveProfile() {
+    setSaving(true)
+    onError(null)
+    try {
+      const updated = await apiFetch<ApiItemResponse<Profile>>('/me/profile', {
+        method: 'PATCH',
+        body: { username: username.trim() },
+      })
+      setProfile(updated)
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function setTopSong(position: number, songId: string) {
+    onError(null)
+    try {
+      await apiFetch<ApiItemResponse<TopSong>>(`/me/top-songs/${position}`, {
+        method: 'PUT',
+        body: { song_id: songId.trim() },
+      })
+      await loadTopSongs()
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  async function clearTopSong(position: number) {
+    onError(null)
+    try {
+      await apiFetch(`/me/top-songs/${position}`, { method: 'DELETE' })
+      await loadTopSongs()
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  const byPosition = useMemo(() => {
+    const m = new Map<number, TopSong>()
+    for (const t of topSongs) m.set(t.position, t)
+    return m
+  }, [topSongs])
+
+  return (
+    <section className="panel">
+      <h1>Profile</h1>
+
+      <h2>My info</h2>
+      <div className="grid">
+        <Field label="Username">
+          <input className="input" value={username} onChange={(e) => setUsername(e.target.value)} />
+        </Field>
+      </div>
+      <button className="btn" type="button" onClick={saveProfile} disabled={saving || !username.trim()}>
+        {saving ? 'Saving…' : 'Save profile'}
+      </button>
+      {profile ? <div className="muted">User id: {profile.user_id}</div> : null}
+
+      <Divider />
+
+      <div className="row spaceBetween">
+        <h2>Top 5 songs (manual)</h2>
+        <button className="btn secondary" type="button" onClick={loadTopSongs} disabled={loadingTop}>
+          Refresh
+        </button>
+      </div>
+
+      <div className="muted">Set each slot by pasting a Song ID (UUID) from Search results.</div>
+
+      <div className="top5">
+        {[1, 2, 3, 4, 5].map((pos) => {
+          const current = byPosition.get(pos)
+          return <Top5Row key={pos} position={pos} current={current} onSet={setTopSong} onClear={clearTopSong} />
+        })}
+      </div>
+    </section>
+  )
+}
+
+function Top5Row({
+  position,
+  current,
+  onSet,
+  onClear,
+}: {
+  position: number
+  current?: TopSong
+  onSet: (position: number, songId: string) => Promise<void>
+  onClear: (position: number) => Promise<void>
+}) {
+  const [songId, setSongId] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function handleSet() {
+    setBusy(true)
+    try {
+      await onSet(position, songId)
+      setSongId('')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleClear() {
+    setBusy(true)
+    try {
+      await onClear(position)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="top5Row">
+      <div className="top5Pos">#{position}</div>
+      <div className="top5Body">
+        {current?.songs ? (
+          <div>
+            <div className="title">{current.songs.title}</div>
+            <div className="subtitle">{current.songs.artist}</div>
+            <div className="muted">{current.song_id}</div>
+          </div>
+        ) : current ? (
+          <div>
+            <div className="title">Song</div>
+            <div className="muted">{current.song_id}</div>
+          </div>
+        ) : (
+          <div className="muted">Empty</div>
+        )}
+      </div>
+      <div className="top5Actions">
+        <input className="input" placeholder="Song UUID" value={songId} onChange={(e) => setSongId(e.target.value)} />
+        <div className="row">
+          <button className="btn" type="button" onClick={handleSet} disabled={busy || !songId.trim()}>
+            Set
+          </button>
+          <button className="btn secondary" type="button" onClick={handleClear} disabled={busy}>
+            Clear
+          </button>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+      </div>
+    </div>
   )
 }
 

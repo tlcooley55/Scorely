@@ -1,0 +1,395 @@
+Strategy
+Project Summary
+Scorely is a social music rating web application that allows users to search for songs, rate them on a 1–5 star scale, optionally write short reviews, and track their listening history. The system is not a streaming platform and does not connect to external services like Spotify. Instead, it focuses entirely on user-driven interaction and reflection.
+After the third interview, the system emphasizes a simple, clean, and intuitive experience, inspired by Letterboxd. The core interaction flow is:
+Search ? Rate ? Save ? Discover through friends Users can also:
+? Bookmark songs for later
+? View their rating history
+? Follow friends and view their activity
+? Showcase their Top 5 songs (manually selected)
+The system avoids complexity by removing features such as messaging, notifications, algorithms, and playlists.
+
+User Constituencies
+1. Personal Trackers (Jane-type users)
+? Goal: Track and organize personal music taste
+? Use:
+? Rating songs
+? Viewing history
+? Bookmarking songs
+? Behavior: Less social, more reflective
+2. Social Explorers (Jake-type users)
+? Goal: Discover music through friends
+? Use:
+? Viewing friend profiles
+? Exploring friend activity
+? Behavior: Social, discovery-driven
+
+Usage Contexts
+? Devices: Mobile-first web app, also usable on desktop
+? Environment:
+? At home
+? During free time
+? While listening to music
+? Conditions:
+
+? Requires internet connection
+? Users manually search and log songs
+? No automation or background tracking
+
+Scope
+Feature Chart
+
+User Stories
+1. Account Creation
+As a new user, I want to create an account so that I can save my ratings and activity.
+2. Login
+As a user, I want to log into my account so that I can access my personal data.
+3. Search Songs
+As a user, I want to search for songs so that I can find music to rate.
+4. View Song Details
+As a user, I want to view a song’s details so that I can decide how to rate it.
+5. Rate Song
+As a user, I want to rate a song from 1–5 stars so that I can record my opinion.
+6. Write Review
+As a user, I want to optionally write a short review so that I can express my thoughts.
+7. Edit Rating
+As a user, I want to edit my rating so that I can update my opinion over time.
+8. View Rating History
+As a user, I want to view my rating history so that I can track what I’ve rated.
+9. Bookmark Songs
+As a user, I want to bookmark songs so that I can revisit them later.
+10. View Friend Profile
+As a user, I want to view a friend’s profile so that I can see their ratings.
+11. View Friend Activity
+As a user, I want to see my friends’ recent ratings so that I can discover new music.
+12. Set Top 5 Songs
+As a user, I want to select my top 5 songs so that I can showcase my favorites.
+
+Structure
+
+Data Model:
+
+
+Changes:
+After Interview #3, the data model stayed mostly the same, but a few important details were clarified.
+The Top 5 songs feature is now confirmed to be manually selected by the user, so the TopSongs entity includes a position (1–5) to store the order.
+The rating system was also clarified so that each user can only have one rating per song, and editing a rating replaces the old one instead of creating a new entry.
+The friend-based discovery feature remains supported through the relationships between users, ratings, and songs, without requiring additional entities.
+Finally, the system continues to focus only on songs, with no separate entities for albums or artists, to keep the design simple
+
+Skeleton
+Navigation Plan
+Scorely uses a simple tab-based navigation system, inspired by Letterboxd, to ensure ease of use and consistency.
+Primary Navigation (Persistent Tabs)
+? Home
+? Search
+? Friends
+   ? Profile Navigation Behavior
+? Users can switch between tabs at any time
+? Each tab represents a core section of the app
+? Navigation is always visible in a top or bottom bar
+? Discovery is handled through the Home and Following Feed sections, where users can see songs their friends have recently rated
+Key User Flow Main Flow:
+? User logs in
+? Lands on Home page
+? Views friend activity (discovery)
+? Navigates to Search
+? Searches for a song
+? Clicks a song to open the Song Detail page
+
+? Rates and optionally reviews the song on the same screen
+   ? Returns to Home, Friends, or Profile Page Relationships
+? Home ? Following Feed / Friend Activity ? Song Detail
+? Search ? Song Detail ? Rate / Review
+? Profile ? Top 5 / Rating History / Bookmarks
+? Friends ? Friend Profile ? Friend Top 5 / Recent Ratings
+   ? Following Feed ? Friend Ratings ? Song Detail Design Rules
+? Minimize the number of pages
+? Combine actions into single screens where possible
+? Avoid redundant navigation
+? Keep interaction simple and direct
+? Make friend-based discovery easy to access from the main flow
+
+Authentication Flow
+Part 1: Narrative
+All users must create an account and log in to access the system. Account Creation:
+Users provide:
+? Username
+? Email
+? Password
+The system validates that the email is unique, then creates and stores the account. Login:
+Users enter their email and password. The system verifies the credentials. If valid:
+? The user is authenticated
+   ? The user is redirected to the Home page After Login:
+Once logged in, users land on the Home page where they can:
+? View friend activity (discovery)
+? Search for songs
+   ? Navigate to their profile and friends Session Behavior:
+? Users remain logged in until they log out
+   ? There are no different user roles; all users have the same level of access Access Control:
+Only logged-in users can:
+? Rate songs
+
+? View profiles
+? Add friends
+? Bookmark songs
+There is no guest access to core features.
+
+Part 2: Authentication Flow Chart
+
+
+Annotated Screenshots from Client Interview
+
+
+Login Page	• K	P:  urrent login/ ccount features
+• CHAN	: Add more color  nd better styling
+• K	P: No additional login f atures request d
+
+
+API	dpolnts UHd (  rver)
+
+
+• :.u1>aoase A th (ch	•	J" 19
+• Scor?ly AP (serwr•side)·
+
+/OA th
+
+st	I miss
+
+
+Edgecases
+
+
+
+
+Songs Page
+• 
+K	P: Song se re Is	ore feature
+• CHA	: Se rch should be the main way users find songs
+• CHA	: e rch r suits should I ad directly to song det ils/r  ing
+• R MOV : Tr a mg Crea	Song as am Jor sep rate pa
+
+
+
+
+
+Create a Song Page
+• 
+REMOVE: Separate songe page
+• COMBINE: Song entry should be part of the search/rating flow
+• Cl lANG : Us r should search or nt r song info while rating, not through a separat pag
+
+
+
+
+
+
+Song Detail Page
+
+KEEP: Main page for v1 wing and rating songs
+KEEP: Show song title, artist. album art. and rel ase year Cf-tANGE: Place rating ne,	album art
+• Cf-tANGE: Place review below rating
+• Cf-tANGE: Improve UI styling
+
+
+
+
+
+Ratings & Review Page
+
+REMOVE: Separate Ratings & Review page
+COMBINE: Move rating and review int KEEP: 1-5 stars and optional review
+
+
+
+
+
+Find a Song Page	• Rl:.MOV /COMBINI:.: Merge this into the mam Songs/Search page
+• CHANG : Keep one simpl se rch flow
+Goes directly to the Songs Page to create a song. Is that what we want
+
+
+
+Bookmarks Page
+
+K EP: Bookmark songs to revisit later
+K  P: Simple general bookmarks hst
+CHA GE: No genr s cttons or extra organization ne ded
+
+
+
+API endpoints used
+
+Enoras.s
+• 422 v I  to	(  t!d (song_id	g or not a UUID)
+• 403 Opt!ration not al	t!d (trying to de?tt! SOfflt!Ont! t!lst! s boo	ar )
+• 404 resour«- no f  nd
+
+
+Search History Page
+
+K	P: Search history i	t re
+K	P: R cents  rch scan stay
+NO MAJOR CHANG S
+
+
+
+
+
+
+
+Activity Page
+• 
+KEEP: ACtlVlty page
+• CHANGE: Focus on friend activity and personal raling history
+• CHANGE: Keep this section simple
+• COMBINE WHERE POSSIBLE: Avoid too many separate activity pages
+
+
+
+Activity
+What this feature Is
+
+View ratng activity over time This includes your pe<Son I listening history and a feed of rat,ng activity from people you follow.
+
+
+
+
+
+
+
+User stories
+• User Story 6: View my listening history.
+• User Story 5: Filt r listening history by	5 st rs.
+
+Primary screens
+• y listening history
+• Following feed
+
+API endpoints used
+
+• GE  /vll•/ra 1"t• (my history)
+• 6E /vl/activity (follow ng feed)
+
+
+
+Following Feed Page
+
+KEEP: Following f d
+KEEP: Supports friend-bas d music discovery CHANGE: Improve UI styling
+
+
+My listening History Page
+• 
+K	P: List nin	history
+• K EP: Show ratings from most r c nt to oldest
+• CHANGE: Should conn  t w II with profil ands rollabl r ting list
+
+
+
+
+
+
+Listening History Filter Page
+• 
+OPTIO Al: llt nng can stay 1f s1mpl
+• OW PRJORllY: No a m m foe s for fm I pro ocyp
+• CHANG :	o not ov rcomplicat
+
+
+Friends Page
+• 
+EE : F i n	p ge
+• EE : Browse use s, folio	us rs, and vie Ii friend pro 1le
+• EE : Fri n	re i1 por  nt for d1 cov ry
+• CHANGE:  eep social fe t	s simpl
+
+
+
+
+Friends	No m ssagm
+
+Wh t this fe ture is
+ol
+Links
+
+
+User stories
+
+
+
+
+
+
+
+
+
+API endpoints used
+
+• I 1/
+• T / 1/
+• 
+• 
+
+tw
+
+n fn nds
+
+
+
+nd discov
+
+
+
+
+
+
+rough oci
+
+
+
+
+
+
+con
+
+
+
+
+
+
+s
+
+Friends Profile Page
+• 
+KEEP: friend p ofile p
+• CHA  GE: Should look s1mila to the user's own pro tie
+• KEEP: S ow rati gs and Top 5 songs
+
+
+
+
+
+
+Friends Top 5 Songs page
+• 
+CORR[CT: Top 5 on s hould b manually s I cted REMOVE: "B s don high st ratin s"
+• REMOVE: "Comput d from ratings"
+• KEEP: Fri nd Top 5 dis lay
+
+
+
+
+
+Profile Page
+• 
+KEEP: Profile page
+• KEEP: Top 5 ongs should ppear cle rly on profile
+• CHANGE: Top 5 should be ne r the top
+• CHANGE: Show all	ted songs b low In a scroll ble hst
+
+
+
+
+
+These screenshots reflect the final feedback from the client during Interview #3. Overall, most of the page structure was approved, but a few important changes were requested. The client wants the design to look more polished, with fewer separate pages related to songs. The rating and review features should be combined into the Song Detail page instead of being separate. The Top 5 songs feature was also clarified to be manually selected by the user, rather than automatically generated. In general, the final design should include album artwork, clearly visible ratings, and a clean layout similar to apps like Letterboxd. It should also support discovery through friend activity, allowing users to easily see and explore songs their friends have recently rated.
