@@ -1,4 +1,17 @@
-export default function HomePage() {
+import { apiFetch, getApiBase } from '../../client/src/lib/api'
+import { supabaseUrl } from '../../client/src/lib/supabase'
+import { toIsoString } from '../../client/src/lib/util'
+
+export default async function HomePage() {
+  let health
+  let healthError
+
+  try {
+    health = await apiFetch('/health')
+  } catch (err) {
+    healthError = err instanceof Error ? err.message : String(err)
+  }
+
   return (
     <section>
       <h2>Welcome to Scorely</h2>
@@ -6,6 +19,23 @@ export default function HomePage() {
         Scorely is a social music rating app where you can rate songs (1–5 stars), write short reviews,
         and see what your friends are listening to.
       </p>
+
+      <h3>System status</h3>
+      <ul>
+        <li>
+          <strong>API base:</strong> <code>{getApiBase()}</code>
+        </li>
+        <li>
+          <strong>Supabase URL:</strong> <code>{supabaseUrl ?? '(not set)'}</code>
+        </li>
+        <li>
+          <strong>Checked at:</strong> <code>{toIsoString(new Date())}</code>
+        </li>
+        <li>
+          <strong>API health:</strong>{' '}
+          {healthError ? <code>{healthError}</code> : <code>{JSON.stringify(health)}</code>}
+        </li>
+      </ul>
 
       <h3>Quick start</h3>
       <ol>
