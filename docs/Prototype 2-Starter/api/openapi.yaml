@@ -1,0 +1,78 @@
+
+openapi: 3.0.3
+info:
+  title: Prototype 2 API
+  version: "0.1.0"
+servers:
+  - url: http://localhost:3001
+paths:
+  /api/health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+  /api/assignments:
+    get:
+      summary: List assignments
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Assignment"
+    post:
+      summary: Create assignment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewAssignment"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Assignment"
+  /api/assignments/{id}:
+    get:
+      summary: Get assignment by id
+      parameters:
+        - in: path
+          name: id
+          schema: { type: integer }
+          required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Assignment"
+        "404":
+          description: Not Found
+components:
+  schemas:
+    Assignment:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        dueDate: { type: string, format: date-time, nullable: true }
+    NewAssignment:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string }
+        dueDate: { type: string, format: date-time, nullable: true }

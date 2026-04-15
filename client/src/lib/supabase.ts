@@ -1,13 +1,15 @@
-export const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-export const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-export const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
+export const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+export const supabaseServiceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY as
+  | string
+  | undefined
 
 export function assertSupabaseClientEnv(): void {
-  if (!supabaseUrl) throw new Error('Missing env NEXT_PUBLIC_SUPABASE_URL')
-  if (!supabaseAnonKey) throw new Error('Missing env NEXT_PUBLIC_SUPABASE_ANON_KEY')
+  if (!supabaseUrl) throw new Error('Missing env VITE_SUPABASE_URL')
+  if (!supabaseAnonKey) throw new Error('Missing env VITE_SUPABASE_ANON_KEY')
 }
 
 export function assertSupabaseAdminEnv(): void {
-  if (!supabaseUrl) throw new Error('Missing env NEXT_PUBLIC_SUPABASE_URL')
-  if (!supabaseServiceRoleKey) throw new Error('Missing env SUPABASE_SERVICE_ROLE_KEY')
+  if (!supabaseUrl) throw new Error('Missing env VITE_SUPABASE_URL')
+  if (!supabaseServiceRoleKey) throw new Error('Missing env VITE_SUPABASE_SERVICE_ROLE_KEY')
 }
