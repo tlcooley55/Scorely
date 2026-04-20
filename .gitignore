@@ -36,3 +36,5 @@ coverage/
 
 # Editor
 .vscode/
+api/.serverless/
+api/s3_test.txt
