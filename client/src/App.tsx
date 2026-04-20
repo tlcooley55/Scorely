@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 
 import { apiFetch, getApiBase } from './lib/api'
+import { supabase } from './lib/supabase'
 
 type Song = {
   song_id: string
@@ -73,8 +74,37 @@ function App() {
   const [activeTab, setActiveTab] = useState<'home' | 'search' | 'friends' | 'profile'>('home')
   const [selectedSongId, setSelectedSongId] = useState<string | null>(null)
   const [globalError, setGlobalError] = useState<string | null>(null)
+  const [authEmail, setAuthEmail] = useState('')
+  const [authCode, setAuthCode] = useState('')
+  const [authBusy, setAuthBusy] = useState(false)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [awaitingCode, setAwaitingCode] = useState(false)
 
   const apiBase = useMemo(() => getApiBase(), [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadUser() {
+      const { data } = await supabase.auth.getUser()
+      if (cancelled) return
+      setUserEmail(data.user?.email ?? null)
+    }
+
+    loadUser().catch(() => {})
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (cancelled) return
+      setUserEmail(session?.user?.email ?? null)
+    })
+
+    return () => {
+      cancelled = true
+      subscription.unsubscribe()
+    }
+  }, [])
 
   useEffect(() => {
     setGlobalError(null)
@@ -86,6 +116,105 @@ function App() {
         <div className="brand">
           <div className="brandTitle">Scorely</div>
           <div className="brandSubtitle">API: {apiBase}</div>
+        </div>
+        <div className="auth">
+          {userEmail ? (
+            <>
+              <div className="authStatus">Signed in as {userEmail}</div>
+              <button
+                className="tab"
+                type="button"
+                onClick={async () => {
+                  setAuthBusy(true)
+                  setGlobalError(null)
+                  try {
+                    await supabase.auth.signOut()
+                    setAwaitingCode(false)
+                    setAuthCode('')
+                  } catch (err) {
+                    setGlobalError(err instanceof Error ? err.message : String(err))
+                  } finally {
+                    setAuthBusy(false)
+                  }
+                }}
+                disabled={authBusy}
+              >
+                Sign out
+              </button>
+            </>
+          ) : (
+            <>
+              <input
+                className="input"
+                placeholder="email@domain.com"
+                value={authEmail}
+                onChange={(e) => setAuthEmail(e.target.value)}
+              />
+              {awaitingCode ? (
+                <input
+                  className="input"
+                  placeholder="Enter code"
+                  value={authCode}
+                  onChange={(e) => setAuthCode(e.target.value)}
+                />
+              ) : null}
+              <button
+                className="tab"
+                type="button"
+                onClick={async () => {
+                  const email = authEmail.trim()
+                  if (!email) {
+                    setGlobalError('Enter an email address to sign in')
+                    return
+                  }
+                  setAuthBusy(true)
+                  setGlobalError(null)
+                  try {
+                    if (awaitingCode) {
+                      const token = authCode.trim()
+                      if (!token) {
+                        setGlobalError('Enter the code from your email')
+                        return
+                      }
+                      const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' })
+                      if (error) throw error
+                      setAwaitingCode(false)
+                      setAuthCode('')
+                    } else {
+                      const { error } = await supabase.auth.signInWithOtp({
+                        email,
+                        options: { emailRedirectTo: window.location.origin },
+                      })
+                      if (error) throw error
+                      setAwaitingCode(true)
+                      setGlobalError('Check your email for the login code/link, then return to this tab.')
+                    }
+                  } catch (err) {
+                    setGlobalError(err instanceof Error ? err.message : String(err))
+                  } finally {
+                    setAuthBusy(false)
+                  }
+                }}
+                disabled={authBusy}
+              >
+                {awaitingCode ? 'Verify code' : 'Send code'}
+              </button>
+              {awaitingCode ? (
+                <button
+                  className="tab"
+                  type="button"
+                  onClick={() => {
+                    setAwaitingCode(false)
+                    setAuthCode('')
+                    setGlobalError(null)
+                  }}
+                  disabled={authBusy}
+                >
+                  Back
+                </button>
+              ) : null}
+            </>
+          )}
         </div>
         <nav className="tabs">
           <TabButton active={activeTab === 'home'} onClick={() => setActiveTab('home')}>
@@ -112,16 +241,25 @@ function App() {
       {globalError ? <div className="error">{globalError}</div> : null}
 
       <main className="main">
-        {activeTab === 'home' ? <HomeView onError={setGlobalError} /> : null}
-        {activeTab === 'search' ? (
-          selectedSongId ? (
-            <SongDetailView songId={selectedSongId} onBack={() => setSelectedSongId(null)} onError={setGlobalError} />
-          ) : (
-            <SearchView onSelectSong={(id) => setSelectedSongId(id)} onError={setGlobalError} />
-          )
-        ) : null}
-        {activeTab === 'friends' ? <FriendsView onError={setGlobalError} /> : null}
-        {activeTab === 'profile' ? <ProfileView onError={setGlobalError} /> : null}
+        {userEmail ? (
+          <>
+            {activeTab === 'home' ? <HomeView onError={setGlobalError} /> : null}
+            {activeTab === 'search' ? (
+              selectedSongId ? (
+                <SongDetailView songId={selectedSongId} onBack={() => setSelectedSongId(null)} onError={setGlobalError} />
+              ) : (
+                <SearchView onSelectSong={(id) => setSelectedSongId(id)} onError={setGlobalError} />
+              )
+            ) : null}
+            {activeTab === 'friends' ? <FriendsView onError={setGlobalError} /> : null}
+            {activeTab === 'profile' ? <ProfileView onError={setGlobalError} /> : null}
+          </>
+        ) : (
+          <section className="panel">
+            <h1>Sign in</h1>
+            <p>Enter your email above and click “Send code”.</p>
+          </section>
+        )}
       </main>
     </div>
   )
