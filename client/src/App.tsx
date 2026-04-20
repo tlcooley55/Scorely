@@ -70,6 +70,24 @@ function Divider() {
   return <hr className="divider" />
 }
 
+function toErrorMessage(err: unknown): string {
+  if (err instanceof Error) {
+    if (err.message && err.message.trim()) return err.message
+    return String(err)
+  }
+
+  if (typeof err === 'string') return err
+
+  try {
+    const s = JSON.stringify(err)
+    if (s && s !== '{}' && s !== 'null') return s
+  } catch (_) {
+    // ignore
+  }
+
+  return String(err)
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState<'home' | 'search' | 'friends' | 'profile'>('home')
   const [selectedSongId, setSelectedSongId] = useState<string | null>(null)
@@ -132,7 +150,8 @@ function App() {
                     setAwaitingCode(false)
                     setAuthCode('')
                   } catch (err) {
-                    setGlobalError(err instanceof Error ? err.message : String(err))
+                    console.error('Supabase signOut failed:', err)
+                    setGlobalError(toErrorMessage(err))
                   } finally {
                     setAuthBusy(false)
                   }
@@ -190,7 +209,8 @@ function App() {
                       setGlobalError('Check your email for the login code/link, then return to this tab.')
                     }
                   } catch (err) {
-                    setGlobalError(err instanceof Error ? err.message : String(err))
+                    console.error('Supabase auth failed:', err)
+                    setGlobalError(toErrorMessage(err))
                   } finally {
                     setAuthBusy(false)
                   }
@@ -216,26 +236,28 @@ function App() {
             </>
           )}
         </div>
-        <nav className="tabs">
-          <TabButton active={activeTab === 'home'} onClick={() => setActiveTab('home')}>
-            Home
-          </TabButton>
-          <TabButton
-            active={activeTab === 'search'}
-            onClick={() => {
-              setSelectedSongId(null)
-              setActiveTab('search')
-            }}
-          >
-            Search
-          </TabButton>
-          <TabButton active={activeTab === 'friends'} onClick={() => setActiveTab('friends')}>
-            Friends
-          </TabButton>
-          <TabButton active={activeTab === 'profile'} onClick={() => setActiveTab('profile')}>
-            Profile
-          </TabButton>
-        </nav>
+        {userEmail ? (
+          <nav className="tabs">
+            <TabButton active={activeTab === 'home'} onClick={() => setActiveTab('home')}>
+              Home
+            </TabButton>
+            <TabButton
+              active={activeTab === 'search'}
+              onClick={() => {
+                setSelectedSongId(null)
+                setActiveTab('search')
+              }}
+            >
+              Search
+            </TabButton>
+            <TabButton active={activeTab === 'friends'} onClick={() => setActiveTab('friends')}>
+              Friends
+            </TabButton>
+            <TabButton active={activeTab === 'profile'} onClick={() => setActiveTab('profile')}>
+              Profile
+            </TabButton>
+          </nav>
+        ) : null}
       </header>
 
       {globalError ? <div className="error">{globalError}</div> : null}

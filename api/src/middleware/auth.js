@@ -9,7 +9,11 @@ function getBearerToken(req) {
 }
 
 function isDevBypassEnabled() {
-  return process.env.NODE_ENV !== 'production' && String(process.env.DEV_BYPASS_AUTH).toLowerCase() === 'true'
+  return (
+    String(process.env.IS_OFFLINE).toLowerCase() === 'true' &&
+    process.env.NODE_ENV !== 'production' &&
+    String(process.env.DEV_BYPASS_AUTH).toLowerCase() === 'true'
+  )
 }
 
 function getDevUserId() {

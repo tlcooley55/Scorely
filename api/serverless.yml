@@ -18,6 +18,7 @@ provider:
       allowedMethods:
         - '*'
   environment:
+    NODE_ENV: production
     SECRETS_ID: ${env:SECRETS_ID, 'Scorely/api/prod'}
   iam:
     role:
