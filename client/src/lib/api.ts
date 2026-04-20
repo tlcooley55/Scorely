@@ -2,6 +2,8 @@ export type ApiFetchOptions = Omit<RequestInit, 'body'> & {
   body?: unknown
 }
 
+import { supabase } from './supabase'
+
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? 'http://localhost:3000/v1'
 
 export function getApiBase(): string {
@@ -13,6 +15,16 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
 
   const headers = new Headers(options.headers)
   if (options.body !== undefined) headers.set('content-type', 'application/json')
+
+  try {
+    const { data } = await supabase.auth.getSession()
+    const token = data.session?.access_token
+    if (token && !headers.has('authorization')) {
+      headers.set('authorization', `Bearer ${token}`)
+    }
+  } catch (_) {
+    // ignore
+  }
 
   const res = await fetch(url, {
     ...options,

@@ -163,6 +163,7 @@ function App() {
             </>
           ) : (
             <>
+              <div className="authStatus">Sign in</div>
               <input
                 className="input"
                 placeholder="email@domain.com"

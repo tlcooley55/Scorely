@@ -5,6 +5,36 @@ const { parseIntParam, pagination, isUuid } = require('../lib/http')
 
 const router = express.Router()
 
+async function lookupItunesAlbumArt({ title, artist }) {
+  const q = [title, artist].filter(Boolean).join(' ').trim()
+  if (!q) return null
+
+  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=music&entity=song&limit=1`
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 2500)
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { accept: 'application/json' },
+      signal: controller.signal,
+    })
+
+    if (!res.ok) return null
+    const json = await res.json().catch(() => null)
+    const item = json && Array.isArray(json.results) && json.results.length ? json.results[0] : null
+    const art = item && typeof item.artworkUrl100 === 'string' ? item.artworkUrl100 : null
+    if (!art) return null
+
+    // Prefer a higher-res image when possible.
+    return art.replace(/\/100x100bb\./, '/512x512bb.')
+  } catch (_) {
+    return null
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 router.get('/', async (req, res, next) => {
   try {
     const { q, artist, genre, releaseYear } = req.query
@@ -47,9 +77,14 @@ router.post('/', async (req, res, next) => {
       return res.status(422).json({ message: 'Validation failed' })
     }
 
+    const resolvedAlbumArt =
+      album_art && typeof album_art === 'string' && album_art.trim()
+        ? album_art.trim()
+        : await lookupItunesAlbumArt({ title, artist })
+
     const { data, error } = await supabaseAdmin
       .from('songs')
-      .insert({ title, artist, album_art, genre, release_year })
+      .insert({ title, artist, album_art: resolvedAlbumArt, genre, release_year })
       .select('song_id, title, artist, album_art, genre, release_year, created_at')
       .single()
 
