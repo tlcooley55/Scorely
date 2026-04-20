@@ -1,0 +1,47 @@
+service: scorely-api
+
+frameworkVersion: '^3.0.0'
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: us-east-2
+  stage: ${opt:stage, 'prod'}
+  httpApi:
+    cors:
+      allowedOrigins:
+        - ${env:AMPLIFY_ORIGIN, 'https://main.d1g28et3sfluf0.amplifyapp.com'}
+        - http://localhost:5173
+      allowedHeaders:
+        - Content-Type
+        - Authorization
+      allowedMethods:
+        - '*'
+  environment:
+    SECRETS_ID: ${env:SECRETS_ID, 'Scorely/api/prod'}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - secretsmanager:GetSecretValue
+          Resource:
+            - arn:aws:secretsmanager:${aws:region}:${aws:accountId}:secret:${env:SECRETS_ID, 'Scorely/api/prod'}*
+
+functions:
+  api:
+    handler: src/lambda.handler
+    events:
+      - httpApi:
+          path: /
+          method: '*'
+      - httpApi:
+          path: /{proxy+}
+          method: '*'
+
+plugins:
+  - serverless-offline
+
+package:
+  patterns:
+    - ../docs/openapi.yaml
