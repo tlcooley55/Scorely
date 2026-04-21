@@ -188,6 +188,13 @@
   height: auto;
 }
 
+.brandTitle {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--text-h);
+}
+
 .pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -196,4 +203,22 @@
 .muted {
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+@media (max-width: 600px) {
+  .brandTitle {
+    font-size: 28px;
+  }
+
+  .btn,
+  .tab {
+    padding: 12px 16px;
+    font-size: 16px;
+  }
+
+  .input,
+  .textarea {
+    font-size: 16px;
+    padding: 12px;
+  }
 }

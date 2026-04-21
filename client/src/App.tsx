@@ -133,7 +133,6 @@ function App() {
       <header className="header">
         <div className="brand">
           <div className="brandTitle">Scorely</div>
-          <div className="brandSubtitle">API: {apiBase}</div>
         </div>
         <div className="auth">
           {userEmail ? (
@@ -512,26 +511,28 @@ function SongDetailView({
 
           <Divider />
 
-          <h2>Rating + Review</h2>
-          <div className="grid">
-            <Field label="Stars (1–5)">
-              <input
-                className="input"
-                type="number"
-                min={1}
-                max={5}
-                value={ratingValue}
-                onChange={(e) => setRatingValue(Number(e.target.value))}
-              />
-            </Field>
-            <Field label="Review (optional, max 500 chars)">
-              <textarea className="textarea" value={review} maxLength={500} onChange={(e) => setReview(e.target.value)} />
-            </Field>
-          </div>
+          <div className="ratingSection">
+            <h2>Rating + Review</h2>
+            <div className="grid">
+              <Field label="Stars (1–5)">
+                <input
+                  className="input"
+                  type="number"
+                  min={1}
+                  max={5}
+                  value={ratingValue}
+                  onChange={(e) => setRatingValue(Number(e.target.value))}
+                />
+              </Field>
+              <Field label="Review (optional, max 500 chars)">
+                <textarea className="textarea" value={review} maxLength={500} onChange={(e) => setReview(e.target.value)} />
+              </Field>
+            </div>
 
-          <button className="btn" type="button" onClick={saveRating} disabled={saving}>
-            {saving ? 'Saving…' : 'Save'}
-          </button>
+            <button className="btn" type="button" onClick={saveRating} disabled={saving}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
         </>
       ) : null}
     </section>
