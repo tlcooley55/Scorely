@@ -714,10 +714,18 @@ function Top5Row({
   const [songId, setSongId] = useState('')
   const [busy, setBusy] = useState(false)
 
+  function normalizeSongId(input: string): string {
+    const raw = String(input ?? '').trim()
+    if (!raw) return ''
+
+    const m = raw.match(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i)
+    return (m ? m[0] : raw).trim()
+  }
+
   async function handleSet() {
     setBusy(true)
     try {
-      await onSet(position, songId)
+      await onSet(position, normalizeSongId(songId))
       setSongId('')
     } catch (_) {
       // keep input so user can correct/try again
@@ -758,7 +766,16 @@ function Top5Row({
         )}
       </div>
       <div className="top5Actions">
-        <input className="input" placeholder="Song UUID" value={songId} onChange={(e) => setSongId(e.target.value)} />
+        <input
+          className="input"
+          placeholder="Song UUID"
+          value={songId}
+          onChange={(e) => setSongId(normalizeSongId(e.target.value))}
+          inputMode="text"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+        />
         <div className="row">
           <button className="btn" type="button" onClick={handleSet} disabled={busy || !songId.trim()}>
             Set
