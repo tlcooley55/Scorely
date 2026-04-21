@@ -110,6 +110,21 @@ router.get('/:songId', async (req, res, next) => {
     if (sErr) return next(sErr)
     if (!song) return res.status(404).json({ message: 'Resource not found' })
 
+    if (!song.album_art || (typeof song.album_art === 'string' && !song.album_art.trim())) {
+      const resolvedAlbumArt = await lookupItunesAlbumArt({ title: song.title, artist: song.artist })
+      if (resolvedAlbumArt) {
+        const { data: updated, error: uErr } = await supabaseAdmin
+          .from('songs')
+          .update({ album_art: resolvedAlbumArt })
+          .eq('song_id', songId)
+          .select('song_id, title, artist, album_art, genre, release_year, created_at')
+          .maybeSingle()
+
+        if (uErr) return next(uErr)
+        if (updated) song.album_art = updated.album_art
+      }
+    }
+
     const { data: ratings, error: rErr } = await supabaseAdmin
       .from('ratings')
       .select('rating_value')
