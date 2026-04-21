@@ -32,8 +32,7 @@ create table if not exists public.top_songs (
   position integer not null,
   created_at timestamptz not null default now(),
   constraint top_songs_position_check check (position between 1 and 5),
-  constraint top_songs_user_position_unique unique (user_id, position),
-  constraint top_songs_user_song_unique unique (user_id, song_id)
+  constraint top_songs_user_position_unique unique (user_id, position)
 );
 
 create index if not exists top_songs_user_id_idx on public.top_songs(user_id);
