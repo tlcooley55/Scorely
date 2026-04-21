@@ -336,6 +336,8 @@ function SearchView({
   const [results, setResults] = useState<Song[]>([])
   const [loading, setLoading] = useState(false)
 
+  const [settingTop, setSettingTop] = useState(false)
+
   const [newTitle, setNewTitle] = useState('')
   const [newArtist, setNewArtist] = useState('')
   const [creating, setCreating] = useState(false)
@@ -383,6 +385,22 @@ function SearchView({
     }
   }
 
+  async function setTopSong(position: number, songId: string) {
+    setSettingTop(true)
+    onError(null)
+    try {
+      await apiFetch(`/me/top-songs/${position}`, {
+        method: 'PUT',
+        body: { song_id: songId },
+      })
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err))
+      throw err
+    } finally {
+      setSettingTop(false)
+    }
+  }
+
   return (
     <section className="panel">
       <h1>Search</h1>
@@ -410,9 +428,32 @@ function SearchView({
               <div className="subtitle">{s.artist}</div>
               <div className="muted">{s.song_id}</div>
             </button>
-            <button className="btn secondary" type="button" onClick={() => copySongId(s.song_id)}>
-              Copy Song ID
-            </button>
+            <div className="listActions">
+              <button className="btn secondary" type="button" onClick={() => copySongId(s.song_id)}>
+                Copy Song ID
+              </button>
+              <select
+                className="input"
+                defaultValue=""
+                onChange={async (e) => {
+                  const value = e.target.value
+                  e.currentTarget.value = ''
+                  const pos = Number(value)
+                  if (!Number.isInteger(pos) || pos < 1 || pos > 5) return
+                  await setTopSong(pos, s.song_id)
+                }}
+                disabled={settingTop}
+              >
+                <option value="" disabled>
+                  Set Top…
+                </option>
+                <option value="1">Top #1</option>
+                <option value="2">Top #2</option>
+                <option value="3">Top #3</option>
+                <option value="4">Top #4</option>
+                <option value="5">Top #5</option>
+              </select>
+            </div>
           </div>
         ))}
       </div>

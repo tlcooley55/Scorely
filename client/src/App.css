@@ -216,6 +216,19 @@
   text-align: left;
 }
 
+.listActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+@media (max-width: 600px) {
+  .listActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
 @media (max-width: 600px) {
   .brandTitle {
     font-size: 28px;
