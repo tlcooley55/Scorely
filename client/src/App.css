@@ -182,3 +182,18 @@
     border-right-color: var(--border);
   }
 }
+
+.albumArt {
+  max-width: 100%;
+  height: auto;
+}
+
+.pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.muted {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
