@@ -98,8 +98,6 @@ function App() {
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [awaitingCode, setAwaitingCode] = useState(false)
 
-  const apiBase = useMemo(() => getApiBase(), [])
-
   useEffect(() => {
     let cancelled = false
 
@@ -133,6 +131,7 @@ function App() {
       <header className="header">
         <div className="brand">
           <div className="brandTitle">Scorely</div>
+          <div className="brandSubtitle">API: {getApiBase()}</div>
         </div>
         <div className="auth">
           {userEmail ? (
