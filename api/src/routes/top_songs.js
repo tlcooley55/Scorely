@@ -7,7 +7,9 @@ const meTopSongsRouter = express.Router()
 const profilesTopSongsRouter = express.Router()
 
 function normalizeUuid(input) {
-  const raw = String(input ?? '').trim()
+  const raw = String(input ?? '')
+    .replace(/[\u2010-\u2015\u2212]/g, '-')
+    .trim()
   if (!raw) return ''
   const m = raw.match(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i)
   return (m ? m[0] : raw).trim()
