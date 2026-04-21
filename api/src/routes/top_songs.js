@@ -51,7 +51,10 @@ meTopSongsRouter.put('/:position', async (req, res, next) => {
 
     if (error) {
       if (String(error.code) === '23505') {
-        return res.status(409).json({ message: 'Conflict with existing data or uniqueness constraint' })
+        return res.status(409).json({
+          message: 'Conflict with existing data or uniqueness constraint',
+          details: error.message,
+        })
       }
       return next(error)
     }
