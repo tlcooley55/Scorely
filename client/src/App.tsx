@@ -11,6 +11,7 @@ type Song = {
   album_art?: string | null
   genre?: string | null
   release_year?: number | null
+  created_at?: string
 }
 
 type Rating = {
@@ -342,13 +343,36 @@ function SearchView({
   const [newArtist, setNewArtist] = useState('')
   const [creating, setCreating] = useState(false)
 
+  function isAlwaysVisibleSong(s: Song): boolean {
+    const title = String(s.title ?? '').trim().toLowerCase()
+    const artist = String(s.artist ?? '').trim().toLowerCase()
+    return (
+      (title === 'bad' && artist === 'michael jackson') ||
+      (title === 'open my heart' && artist === 'yolanda adams')
+    )
+  }
+
+  function filterSeedSongs(items: Song[]): Song[] {
+    const cutoff = localStorage.getItem('scorely_user_song_start')
+    if (!cutoff) return items
+
+    const cutoffMs = Date.parse(cutoff)
+    if (!Number.isFinite(cutoffMs)) return items
+
+    return items.filter((s) => {
+      if (isAlwaysVisibleSong(s)) return true
+      const created = s.created_at ? Date.parse(String(s.created_at)) : NaN
+      return Number.isFinite(created) && created >= cutoffMs
+    })
+  }
+
   async function runSearch() {
     setLoading(true)
     onError(null)
     try {
       const qs = q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ''
       const resp = await apiFetch<ApiListResponse<Song>>(`/songs${qs}`)
-      setResults(resp.data)
+      setResults(filterSeedSongs(resp.data))
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -362,6 +386,11 @@ function SearchView({
     try {
       const payload = { title: newTitle.trim(), artist: newArtist.trim() }
       const created = await apiFetch<ApiItemResponse<Song>>('/songs', { method: 'POST', body: payload })
+
+      if (!localStorage.getItem('scorely_user_song_start')) {
+        localStorage.setItem('scorely_user_song_start', new Date().toISOString())
+      }
+
       setNewTitle('')
       setNewArtist('')
       onSelectSong(created.song_id)
