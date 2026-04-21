@@ -643,6 +643,7 @@ function ProfileView({ onError }: { onError: (msg: string | null) => void }) {
       await loadTopSongs()
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err))
+      throw err
     }
   }
 
@@ -653,6 +654,7 @@ function ProfileView({ onError }: { onError: (msg: string | null) => void }) {
       await loadTopSongs()
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err))
+      throw err
     }
   }
 
@@ -717,6 +719,8 @@ function Top5Row({
     try {
       await onSet(position, songId)
       setSongId('')
+    } catch (_) {
+      // keep input so user can correct/try again
     } finally {
       setBusy(false)
     }
@@ -726,6 +730,8 @@ function Top5Row({
     setBusy(true)
     try {
       await onClear(position)
+    } catch (_) {
+      // ignore
     } finally {
       setBusy(false)
     }
@@ -737,6 +743,7 @@ function Top5Row({
       <div className="top5Body">
         {current?.songs ? (
           <div>
+            {current.songs.album_art ? <img className="albumArt" src={current.songs.album_art} alt="" /> : null}
             <div className="title">{current.songs.title}</div>
             <div className="subtitle">{current.songs.artist}</div>
             <div className="muted">{current.song_id}</div>
