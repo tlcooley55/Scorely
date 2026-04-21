@@ -370,6 +370,19 @@ function SearchView({
     }
   }
 
+  async function copySongId(songId: string) {
+    onError(null)
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(songId)
+        return
+      }
+      throw new Error('Clipboard not available')
+    } catch (err) {
+      onError('Copy failed. Tap and hold the Song ID to copy it.')
+    }
+  }
+
   return (
     <section className="panel">
       <h1>Search</h1>
@@ -391,11 +404,16 @@ function SearchView({
       {results.length === 0 ? <div className="muted">No results yet.</div> : null}
       <div className="list">
         {results.map((s) => (
-          <button key={s.song_id} className="listItem" onClick={() => onSelectSong(s.song_id)} type="button">
-            <div className="title">{s.title}</div>
-            <div className="subtitle">{s.artist}</div>
-            <div className="muted">{s.song_id}</div>
-          </button>
+          <div key={s.song_id} className="listItem">
+            <button className="listMain" onClick={() => onSelectSong(s.song_id)} type="button">
+              <div className="title">{s.title}</div>
+              <div className="subtitle">{s.artist}</div>
+              <div className="muted">{s.song_id}</div>
+            </button>
+            <button className="btn secondary" type="button" onClick={() => copySongId(s.song_id)}>
+              Copy Song ID
+            </button>
+          </div>
         ))}
       </div>
 

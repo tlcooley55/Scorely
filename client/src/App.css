@@ -205,6 +205,17 @@
   word-break: break-word;
 }
 
+.listItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.listMain {
+  flex: 1;
+  text-align: left;
+}
+
 @media (max-width: 600px) {
   .brandTitle {
     font-size: 28px;
