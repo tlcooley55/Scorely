@@ -11,8 +11,16 @@ function normalizeUuid(input) {
     .replace(/[\u2010-\u2015\u2212]/g, '-')
     .trim()
   if (!raw) return ''
+
   const m = raw.match(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i)
-  return (m ? m[0] : raw).trim()
+  if (m) return m[0]
+
+  const hex = raw.replace(/[^0-9a-f]/gi, '')
+  if (hex.length === 32) {
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+  }
+
+  return raw
 }
 
 async function lookupItunesAlbumArt({ title, artist }) {
