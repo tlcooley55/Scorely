@@ -9,7 +9,14 @@ function errorHandler(err, req, res, next) {
 
   if (res.headersSent) return
 
-  return res.status(500).json({ message: 'Internal server error' })
+  const status =
+    (err && (err.statusCode || err.status) && Number.isInteger(Number(err.statusCode || err.status))
+      ? Number(err.statusCode || err.status)
+      : 500)
+
+  const msg = err && typeof err.message === 'string' && err.message.trim() ? err.message : 'Internal server error'
+
+  return res.status(status).json({ message: msg })
 }
 
 module.exports = {
