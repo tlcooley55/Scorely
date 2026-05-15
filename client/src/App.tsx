@@ -89,8 +89,10 @@ function toErrorMessage(err: unknown): string {
   return String(err)
 }
 
+type Tab = 'home' | 'search' | 'friends' | 'profile'
+
 function App() {
-  const [activeTab, setActiveTab] = useState<'home' | 'search' | 'friends' | 'profile'>('home')
+  const [activeTab, setActiveTab] = useState<Tab>('home')
   const [selectedSongId, setSelectedSongId] = useState<string | null>(null)
   const [globalError, setGlobalError] = useState<string | null>(null)
   const [authEmail, setAuthEmail] = useState('')
@@ -265,7 +267,15 @@ function App() {
       <main className="main">
         {userEmail ? (
           <>
-            {activeTab === 'home' ? <HomeView onError={setGlobalError} /> : null}
+            {activeTab === 'home' ? (
+              <HomeView
+                onError={setGlobalError}
+                onNavigate={(tab) => {
+                  setSelectedSongId(null)
+                  setActiveTab(tab)
+                }}
+              />
+            ) : null}
             {activeTab === 'search' ? (
               selectedSongId ? (
                 <SongDetailView songId={selectedSongId} onBack={() => setSelectedSongId(null)} onError={setGlobalError} />
@@ -287,7 +297,13 @@ function App() {
   )
 }
 
-function HomeView({ onError: _onError }: { onError: (msg: string | null) => void }) {
+function HomeView({
+  onError: _onError,
+  onNavigate,
+}: {
+  onError: (msg: string | null) => void
+  onNavigate: (tab: Tab) => void
+}) {
   return (
     <section className="panel hero">
       <div className="heroEyebrow">Welcome back</div>
@@ -296,21 +312,21 @@ function HomeView({ onError: _onError }: { onError: (msg: string | null) => void
         Find any song, give it a score, and curate your personal Top 5. Quick, simple, and yours.
       </p>
       <div className="quickActions">
-        <div className="quickCard">
+        <button type="button" className="quickCard" onClick={() => onNavigate('search')}>
           <div className="quickIcon">🔍</div>
           <div className="quickTitle">Search</div>
-          <div className="quickDesc">Find a song by title or artist.</div>
-        </div>
-        <div className="quickCard">
+          <div className="quickDesc">Find any song from the shared library.</div>
+        </button>
+        <button type="button" className="quickCard" onClick={() => onNavigate('search')}>
           <div className="quickIcon">⭐</div>
           <div className="quickTitle">Rate</div>
-          <div className="quickDesc">Score 1–5 and leave a short review.</div>
-        </div>
-        <div className="quickCard">
+          <div className="quickDesc">Look up a song and score it 1–5.</div>
+        </button>
+        <button type="button" className="quickCard" onClick={() => onNavigate('profile')}>
           <div className="quickIcon">🏆</div>
           <div className="quickTitle">Top 5</div>
-          <div className="quickDesc">Pin your all-time favorites in Profile.</div>
-        </div>
+          <div className="quickDesc">View and edit your personal Top 5.</div>
+        </button>
       </div>
     </section>
   )

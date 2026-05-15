@@ -404,9 +404,14 @@ select.input {
   .quickActions { grid-template-columns: 1fr; }
 }
 .quickCard {
+  appearance: none;
+  font: inherit;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
   background: var(--bg-2);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 4px;
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -414,9 +419,14 @@ select.input {
   transition: border-color .15s ease, transform .12s ease, background .15s ease;
 }
 .quickCard:hover {
-  border-color: var(--border-2);
+  border-color: var(--accent);
   background: var(--surface);
   transform: translateY(-1px);
+}
+.quickCard:hover .quickTitle { color: var(--accent); }
+.quickCard:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
 }
 .quickIcon {
   font-size: 22px;
