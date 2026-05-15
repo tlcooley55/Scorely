@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 
-import { apiFetch, getApiBase } from './lib/api'
+import { apiFetch } from './lib/api'
 import { supabase } from './lib/supabase'
 
 type Song = {
@@ -132,7 +132,7 @@ function App() {
       <header className="header">
         <div className="brand">
           <div className="brandTitle">Scorely</div>
-          <div className="brandSubtitle">API: {getApiBase()}</div>
+          <div className="brandSubtitle">Rate. Save. Discover.</div>
         </div>
         <div className="auth">
           {userEmail ? (
@@ -287,41 +287,31 @@ function App() {
   )
 }
 
-function HomeView({ onError }: { onError: (msg: string | null) => void }) {
-  const [health, setHealth] = useState<unknown>(null)
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      setLoading(true)
-      onError(null)
-      try {
-        const data = await apiFetch('/health')
-        if (!cancelled) setHealth(data)
-      } catch (err) {
-        if (!cancelled) onError(err instanceof Error ? err.message : String(err))
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    load()
-    return () => {
-      cancelled = true
-    }
-  }, [onError])
-
+function HomeView({ onError: _onError }: { onError: (msg: string | null) => void }) {
   return (
-    <section className="panel">
-      <h1>Home</h1>
-      <p>
-        Search → Rate → Save → Discover through friends. Ratings & reviews are combined directly on the Song Detail
-        screen.
+    <section className="panel hero">
+      <div className="heroEyebrow">Welcome back</div>
+      <h1>Rate the songs you love.</h1>
+      <p className="heroLead">
+        Find any song, give it a score, and curate your personal Top 5. Quick, simple, and yours.
       </p>
-      <Divider />
-      <h2>Status</h2>
-      {loading ? <div>Loading…</div> : <pre className="pre">{JSON.stringify(health, null, 2)}</pre>}
+      <div className="quickActions">
+        <div className="quickCard">
+          <div className="quickIcon">🔍</div>
+          <div className="quickTitle">Search</div>
+          <div className="quickDesc">Find a song by title or artist.</div>
+        </div>
+        <div className="quickCard">
+          <div className="quickIcon">⭐</div>
+          <div className="quickTitle">Rate</div>
+          <div className="quickDesc">Score 1–5 and leave a short review.</div>
+        </div>
+        <div className="quickCard">
+          <div className="quickIcon">🏆</div>
+          <div className="quickTitle">Top 5</div>
+          <div className="quickDesc">Pin your all-time favorites in Profile.</div>
+        </div>
+      </div>
     </section>
   )
 }
@@ -401,19 +391,6 @@ function SearchView({
     }
   }
 
-  async function copySongId(songId: string) {
-    onError(null)
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(songId)
-        return
-      }
-      throw new Error('Clipboard not available')
-    } catch (err) {
-      onError('Copy failed. Tap and hold the Song ID to copy it.')
-    }
-  }
-
   async function setTopSong(position: number, songId: string) {
     setSettingTop(true)
     onError(null)
@@ -453,14 +430,13 @@ function SearchView({
         {results.map((s) => (
           <div key={s.song_id} className="listItem">
             <button className="listMain" onClick={() => onSelectSong(s.song_id)} type="button">
-              <div className="title">{s.title}</div>
-              <div className="subtitle">{s.artist}</div>
-              <div className="muted">{s.song_id}</div>
+              {s.album_art ? <img className="albumArtThumb" src={s.album_art} alt="" /> : <div className="albumArtThumb albumArtPlaceholder" aria-hidden="true" />}
+              <div className="listText">
+                <div className="title">{s.title}</div>
+                <div className="subtitle">{s.artist}</div>
+              </div>
             </button>
             <div className="listActions">
-              <button className="btn secondary" type="button" onClick={() => copySongId(s.song_id)}>
-                Copy Song ID
-              </button>
               <select
                 className="input"
                 defaultValue=""
@@ -489,18 +465,22 @@ function SearchView({
 
       <Divider />
 
-      <h2>Add a song (inline)</h2>
-      <div className="grid">
-        <Field label="Title">
-          <input className="input" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
-        </Field>
-        <Field label="Artist">
-          <input className="input" value={newArtist} onChange={(e) => setNewArtist(e.target.value)} />
-        </Field>
-      </div>
-      <button className="btn" type="button" onClick={createSong} disabled={creating || !newTitle.trim() || !newArtist.trim()}>
-        {creating ? 'Creating…' : 'Create + Rate'}
-      </button>
+      <details className="addSong">
+        <summary>Can&rsquo;t find it? Add a song</summary>
+        <div className="addSongBody">
+          <div className="grid">
+            <Field label="Title">
+              <input className="input" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
+            </Field>
+            <Field label="Artist">
+              <input className="input" value={newArtist} onChange={(e) => setNewArtist(e.target.value)} />
+            </Field>
+          </div>
+          <button className="btn" type="button" onClick={createSong} disabled={creating || !newTitle.trim() || !newArtist.trim()}>
+            {creating ? 'Creating…' : 'Add & Rate'}
+          </button>
+        </div>
+      </details>
     </section>
   )
 }
@@ -652,9 +632,13 @@ function FriendsView({ onError }: { onError: (msg: string | null) => void }) {
   return (
     <section className="panel">
       <h1>Friends</h1>
-      <p className="muted">This view will list friends and their activity. Kept minimal for now.</p>
-      <Divider />
-      <div>Friends API reachable: {ok === null ? '…' : ok ? 'yes' : 'no'}</div>
+      <p className="muted">Friends and their activity will appear here.</p>
+      <div className="emptyState">
+        <div className="emptyIcon">👥</div>
+        <div className="emptyTitle">No friends yet</div>
+        <div className="emptyDesc">Once friends are added, you&rsquo;ll see their recent ratings and Top 5s here.</div>
+        {ok === false ? <div className="muted" style={{ marginTop: 8 }}>Connection issue — please try again later.</div> : null}
+      </div>
     </section>
   )
 }
@@ -765,7 +749,7 @@ function ProfileView({ onError }: { onError: (msg: string | null) => void }) {
       <button className="btn" type="button" onClick={saveProfile} disabled={saving || !username.trim()}>
         {saving ? 'Saving…' : 'Save profile'}
       </button>
-      {profile ? <div className="muted">User id: {profile.user_id}</div> : null}
+      {profile ? null : null}
 
       <Divider />
 
@@ -776,7 +760,7 @@ function ProfileView({ onError }: { onError: (msg: string | null) => void }) {
         </button>
       </div>
 
-      <div className="muted">Set each slot by pasting a Song ID (UUID) from Search results.</div>
+      <div className="muted">Tip: copy a Song ID from Search, then paste into a slot. Or use “Set Top…” on Search results.</div>
 
       <div className="top5">
         {[1, 2, 3, 4, 5].map((pos) => {
@@ -847,19 +831,21 @@ function Top5Row({
       <div className="top5Pos">#{position}</div>
       <div className="top5Body">
         {current?.songs ? (
-          <div>
-            {current.songs.album_art ? <img className="albumArt" src={current.songs.album_art} alt="" /> : null}
-            <div className="title">{current.songs.title}</div>
-            <div className="subtitle">{current.songs.artist}</div>
-            <div className="muted">{current.song_id}</div>
+          <div className="top5Song">
+            {current.songs.album_art ? (
+              <img className="albumArtThumb" src={current.songs.album_art} alt="" />
+            ) : (
+              <div className="albumArtThumb albumArtPlaceholder" aria-hidden="true" />
+            )}
+            <div className="top5Text">
+              <div className="title">{current.songs.title}</div>
+              <div className="subtitle">{current.songs.artist}</div>
+            </div>
           </div>
         ) : current ? (
-          <div>
-            <div className="title">Song</div>
-            <div className="muted">{current.song_id}</div>
-          </div>
+          <div className="muted">Song saved (no details yet)</div>
         ) : (
-          <div className="muted">Empty</div>
+          <div className="muted">Empty slot</div>
         )}
       </div>
       <div className="top5Actions">

@@ -107,7 +107,18 @@ meTopSongsRouter.put('/:position', async (req, res, next) => {
 
     const { song_id } = req.body || {}
     const normalizedSongId = normalizeUuid(song_id)
-    if (!normalizedSongId || !isUuid(normalizedSongId)) return res.status(422).json({ message: 'Validation failed' })
+    const hex = String(normalizedSongId).replace(/-/g, '')
+    const isHexUuid = /^[0-9a-f]{32}$/i.test(hex)
+    if (!normalizedSongId || !isHexUuid) {
+      return res.status(422).json({
+        message: 'Validation failed',
+        details: {
+          field: 'song_id',
+          received: typeof song_id === 'string' ? song_id : JSON.stringify(song_id),
+          normalized: normalizedSongId,
+        },
+      })
+    }
 
     const { data, error } = await supabaseAdmin
       .from('top_songs')
