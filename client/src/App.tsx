@@ -721,20 +721,6 @@ function ProfileView({ onError }: { onError: (msg: string | null) => void }) {
     }
   }
 
-  async function setTopSong(position: number, songId: string) {
-    onError(null)
-    try {
-      await apiFetch<ApiItemResponse<TopSong>>(`/me/top-songs/${position}`, {
-        method: 'PUT',
-        body: { song_id: songId.trim() },
-      })
-      await loadTopSongs()
-    } catch (err) {
-      onError(err instanceof Error ? err.message : String(err))
-      throw err
-    }
-  }
-
   async function clearTopSong(position: number) {
     onError(null)
     try {
@@ -770,18 +756,18 @@ function ProfileView({ onError }: { onError: (msg: string | null) => void }) {
       <Divider />
 
       <div className="row spaceBetween">
-        <h2>Top 5 songs (manual)</h2>
+        <h2>Top 5 songs</h2>
         <button className="btn secondary" type="button" onClick={loadTopSongs} disabled={loadingTop}>
           Refresh
         </button>
       </div>
 
-      <div className="muted">Tip: copy a Song ID from Search, then paste into a slot. Or use “Set Top…” on Search results.</div>
+      <div className="muted">Set or change a slot from Search → “Set Top…” on any song.</div>
 
       <div className="top5">
         {[1, 2, 3, 4, 5].map((pos) => {
           const current = byPosition.get(pos)
-          return <Top5Row key={pos} position={pos} current={current} onSet={setTopSong} onClear={clearTopSong} />
+          return <Top5Row key={pos} position={pos} current={current} onClear={clearTopSong} />
         })}
       </div>
     </section>
@@ -791,45 +777,13 @@ function ProfileView({ onError }: { onError: (msg: string | null) => void }) {
 function Top5Row({
   position,
   current,
-  onSet,
   onClear,
 }: {
   position: number
   current?: TopSong
-  onSet: (position: number, songId: string) => Promise<void>
   onClear: (position: number) => Promise<void>
 }) {
-  const [songId, setSongId] = useState('')
   const [busy, setBusy] = useState(false)
-
-  function normalizeSongId(input: string): string {
-    const raw = String(input ?? '')
-      .replace(/[\u2010-\u2015\u2212]/g, '-')
-      .trim()
-    if (!raw) return ''
-
-    const m = raw.match(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i)
-    if (m) return m[0]
-
-    const hex = raw.replace(/[^0-9a-f]/gi, '')
-    if (hex.length === 32) {
-      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
-    }
-
-    return raw
-  }
-
-  async function handleSet() {
-    setBusy(true)
-    try {
-      await onSet(position, normalizeSongId(songId))
-      setSongId('')
-    } catch (_) {
-      // keep input so user can correct/try again
-    } finally {
-      setBusy(false)
-    }
-  }
 
   async function handleClear() {
     setBusy(true)
@@ -856,6 +810,9 @@ function Top5Row({
             <div className="top5Text">
               <div className="title">{current.songs.title}</div>
               <div className="subtitle">{current.songs.artist}</div>
+              {current.songs.release_year ? (
+                <div className="muted">{current.songs.release_year}</div>
+              ) : null}
             </div>
           </div>
         ) : current ? (
@@ -864,26 +821,13 @@ function Top5Row({
           <div className="muted">Empty slot</div>
         )}
       </div>
-      <div className="top5Actions">
-        <input
-          className="input"
-          placeholder="Song UUID"
-          value={songId}
-          onChange={(e) => setSongId(normalizeSongId(e.target.value))}
-          inputMode="text"
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-        />
-        <div className="row">
-          <button className="btn" type="button" onClick={handleSet} disabled={busy || !songId.trim()}>
-            Set
-          </button>
+      {current ? (
+        <div className="top5Actions">
           <button className="btn secondary" type="button" onClick={handleClear} disabled={busy}>
             Clear
           </button>
         </div>
-      </div>
+      ) : null}
     </div>
   )
 }
