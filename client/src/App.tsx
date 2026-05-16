@@ -765,6 +765,30 @@ function FriendsView({ onError }: { onError: (msg: string | null) => void }) {
 
   const followingIds = new Set(following.map((f) => f.user_id))
 
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null)
+  const [expandedTop, setExpandedTop] = useState<TopSong[]>([])
+  const [expandedLoading, setExpandedLoading] = useState(false)
+
+  async function toggleTop5(userId: string) {
+    if (expandedUserId === userId) {
+      setExpandedUserId(null)
+      setExpandedTop([])
+      return
+    }
+    setExpandedUserId(userId)
+    setExpandedTop([])
+    setExpandedLoading(true)
+    onError(null)
+    try {
+      const res = await apiFetch<ApiListResponse<TopSong>>(`/profiles/${userId}/top-songs`)
+      setExpandedTop(res.data || [])
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setExpandedLoading(false)
+    }
+  }
+
   return (
     <section className="panel">
       <h1>Friends</h1>
@@ -809,25 +833,68 @@ function FriendsView({ onError }: { onError: (msg: string | null) => void }) {
         <div className="muted">You aren&rsquo;t following anyone yet.</div>
       ) : (
         <div className="list">
-          {following.map((f) => (
-            <div key={f.friend_id} className="listItem">
-              <div className="listMain">
-                <div className="listText">
-                  <div className="title">{f.username}</div>
+          {following.map((f) => {
+            const isOpen = expandedUserId === f.user_id
+            return (
+              <div key={f.friend_id} className="friendCard">
+                <div className="listItem">
+                  <div className="listMain">
+                    <div className="listText">
+                      <div className="title">{f.username}</div>
+                    </div>
+                  </div>
+                  <div className="listActions">
+                    <button
+                      className="btn secondary"
+                      type="button"
+                      onClick={() => toggleTop5(f.user_id)}
+                      disabled={busy}
+                    >
+                      {isOpen ? 'Hide Top 5' : 'Top 5'}
+                    </button>
+                    <button
+                      className="btn secondary"
+                      type="button"
+                      onClick={() => unfollow(f.friend_id)}
+                      disabled={busy}
+                    >
+                      Unfollow
+                    </button>
+                  </div>
                 </div>
+                {isOpen ? (
+                  <div className="friendTop5">
+                    {expandedLoading ? (
+                      <div className="muted">Loading…</div>
+                    ) : expandedTop.length === 0 ? (
+                      <div className="muted">{f.username} hasn&rsquo;t set a Top 5 yet.</div>
+                    ) : (
+                      expandedTop
+                        .slice()
+                        .sort((a, b) => a.position - b.position)
+                        .map((t) => (
+                          <div key={t.top_song_id} className="friendTop5Row">
+                            <div className="friendTop5Pos">#{t.position}</div>
+                            {t.songs?.album_art ? (
+                              <img className="albumArtThumb" src={t.songs.album_art} alt="" />
+                            ) : (
+                              <div className="albumArtThumb albumArtPlaceholder" aria-hidden="true" />
+                            )}
+                            <div className="listText">
+                              <div className="title">{t.songs?.title || '(unknown title)'}</div>
+                              <div className="subtitle">{t.songs?.artist || '(unknown artist)'}</div>
+                              {t.songs?.release_year ? (
+                                <div className="muted">{t.songs.release_year}</div>
+                              ) : null}
+                            </div>
+                          </div>
+                        ))
+                    )}
+                  </div>
+                ) : null}
               </div>
-              <div className="listActions">
-                <button
-                  className="btn secondary"
-                  type="button"
-                  onClick={() => unfollow(f.friend_id)}
-                  disabled={busy}
-                >
-                  Unfollow
-                </button>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
