@@ -632,39 +632,275 @@ function SongDetailView({
   )
 }
 
+type FriendRow = { friend_id: string; user_id: string; username: string }
+type FollowerRow = { user_id: string; username: string }
+type ActivityItem = {
+  rating_id: string
+  user_id: string
+  username: string
+  song_id: string
+  song_title: string
+  artist: string
+  rating_value: number
+  review: string | null
+  created_at: string
+}
+
 function FriendsView({ onError }: { onError: (msg: string | null) => void }) {
-  const [ok, setOk] = useState<boolean | null>(null)
+  const [me, setMe] = useState<Profile | null>(null)
+  const [following, setFollowing] = useState<FriendRow[]>([])
+  const [followers, setFollowers] = useState<FollowerRow[]>([])
+  const [activity, setActivity] = useState<ActivityItem[]>([])
+  const [addUsername, setAddUsername] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  async function loadAll() {
+    setLoading(true)
+    onError(null)
+    try {
+      const meRes = await apiFetch<Profile>('/me/profile')
+      setMe(meRes)
+
+      const friendsRes = await apiFetch<{ data: { friend_id: string; friend_user_id: string }[] }>(
+        '/friends?limit=100'
+      )
+      const followingRows: FriendRow[] = await Promise.all(
+        (friendsRes.data || []).map(async (f) => {
+          try {
+            const p = await apiFetch<Profile>(`/profiles/${f.friend_user_id}`)
+            return { friend_id: f.friend_id, user_id: f.friend_user_id, username: p.username || '(no username)' }
+          } catch {
+            return { friend_id: f.friend_id, user_id: f.friend_user_id, username: '(unknown)' }
+          }
+        })
+      )
+      setFollowing(followingRows)
+
+      const followersRes = await apiFetch<{ data: { user_id: string }[] }>(
+        `/profiles/${meRes.user_id}/followers?limit=100`
+      )
+      const followerRows: FollowerRow[] = await Promise.all(
+        (followersRes.data || []).map(async (f) => {
+          try {
+            const p = await apiFetch<Profile>(`/profiles/${f.user_id}`)
+            return { user_id: f.user_id, username: p.username || '(no username)' }
+          } catch {
+            return { user_id: f.user_id, username: '(unknown)' }
+          }
+        })
+      )
+      setFollowers(followerRows)
+
+      const feedRes = await apiFetch<{ data: ActivityItem[] }>('/activity/feed?limit=50')
+      setActivity(feedRes.data || [])
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    let cancelled = false
-    async function load() {
-      onError(null)
-      try {
-        await apiFetch('/friends?limit=1')
-        if (!cancelled) setOk(true)
-      } catch (err) {
-        if (!cancelled) {
-          setOk(false)
-          onError(err instanceof Error ? err.message : String(err))
-        }
+    loadAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function addFriend() {
+    const username = addUsername.trim()
+    if (!username) return
+    setBusy(true)
+    onError(null)
+    try {
+      const res = await apiFetch<{ data: Profile[] }>(`/profiles?username=${encodeURIComponent(username)}`)
+      const found = (res.data || [])[0]
+      if (!found) {
+        onError(`No user named "${username}" was found.`)
+        return
       }
+      if (me && found.user_id === me.user_id) {
+        onError("You can't follow yourself.")
+        return
+      }
+      await apiFetch('/friends', { method: 'POST', body: { friend_user_id: found.user_id } })
+      setAddUsername('')
+      await loadAll()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.includes('409')) {
+        onError(`You're already following "${addUsername}".`)
+      } else {
+        onError(msg)
+      }
+    } finally {
+      setBusy(false)
     }
-    load()
-    return () => {
-      cancelled = true
+  }
+
+  async function unfollow(friendId: string) {
+    setBusy(true)
+    onError(null)
+    try {
+      await apiFetch(`/friends/${friendId}`, { method: 'DELETE' })
+      await loadAll()
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
     }
-  }, [onError])
+  }
+
+  async function followBack(userId: string) {
+    setBusy(true)
+    onError(null)
+    try {
+      await apiFetch('/friends', { method: 'POST', body: { friend_user_id: userId } })
+      await loadAll()
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const followingIds = new Set(following.map((f) => f.user_id))
 
   return (
     <section className="panel">
       <h1>Friends</h1>
-      <p className="muted">Friends and their activity will appear here.</p>
-      <div className="emptyState">
-        <div className="emptyIcon">👥</div>
-        <div className="emptyTitle">No friends yet</div>
-        <div className="emptyDesc">Once friends are added, you&rsquo;ll see their recent ratings and Top 5s here.</div>
-        {ok === false ? <div className="muted" style={{ marginTop: 8 }}>Connection issue — please try again later.</div> : null}
+      <p className="muted">
+        Follow people by their username to see their ratings show up in your activity feed.
+      </p>
+
+      {!me?.username ? (
+        <div className="emptyState">
+          <div className="emptyIcon">👤</div>
+          <div className="emptyTitle">Set your username first</div>
+          <div className="emptyDesc">Open Profile and pick a username so others can follow you back.</div>
+        </div>
+      ) : null}
+
+      <Divider />
+
+      <h2>Add a friend</h2>
+      <div className="row" style={{ gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        <Field label="Their username">
+          <input
+            className="input"
+            placeholder="e.g. tlcooley"
+            value={addUsername}
+            onChange={(e) => setAddUsername(e.target.value)}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+          />
+        </Field>
+        <button className="btn" type="button" onClick={addFriend} disabled={busy || !addUsername.trim()}>
+          Follow
+        </button>
       </div>
+
+      <Divider />
+
+      <h2>Following ({following.length})</h2>
+      {loading ? (
+        <div className="muted">Loading…</div>
+      ) : following.length === 0 ? (
+        <div className="muted">You aren&rsquo;t following anyone yet.</div>
+      ) : (
+        <div className="list">
+          {following.map((f) => (
+            <div key={f.friend_id} className="listItem">
+              <div className="listMain">
+                <div className="listText">
+                  <div className="title">{f.username}</div>
+                </div>
+              </div>
+              <div className="listActions">
+                <button
+                  className="btn secondary"
+                  type="button"
+                  onClick={() => unfollow(f.friend_id)}
+                  disabled={busy}
+                >
+                  Unfollow
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Divider />
+
+      <h2>Followers ({followers.length})</h2>
+      {loading ? (
+        <div className="muted">Loading…</div>
+      ) : followers.length === 0 ? (
+        <div className="muted">No one is following you yet.</div>
+      ) : (
+        <div className="list">
+          {followers.map((f) => {
+            const mutual = followingIds.has(f.user_id)
+            return (
+              <div key={f.user_id} className="listItem">
+                <div className="listMain">
+                  <div className="listText">
+                    <div className="title">{f.username}</div>
+                    <div className="subtitle">{mutual ? 'Mutual' : 'Not following back'}</div>
+                  </div>
+                </div>
+                {!mutual ? (
+                  <div className="listActions">
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => followBack(f.user_id)}
+                      disabled={busy}
+                    >
+                      Follow back
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      <Divider />
+
+      <h2>Activity</h2>
+      {loading ? (
+        <div className="muted">Loading…</div>
+      ) : activity.length === 0 ? (
+        <div className="emptyState">
+          <div className="emptyIcon">📰</div>
+          <div className="emptyTitle">Nothing here yet</div>
+          <div className="emptyDesc">Ratings from people you follow will appear here.</div>
+        </div>
+      ) : (
+        <div className="list">
+          {activity.map((a) => (
+            <div key={a.rating_id} className="listItem">
+              <div className="listMain">
+                <div className="listText">
+                  <div className="title">
+                    <strong>{a.username || 'Someone'}</strong> rated <em>{a.song_title}</em>
+                    {a.artist ? ` by ${a.artist}` : ''}
+                  </div>
+                  <div className="subtitle">
+                    {'★'.repeat(Math.max(0, Math.min(5, a.rating_value)))}
+                    {'☆'.repeat(Math.max(0, 5 - a.rating_value))}
+                    {a.review ? ` — "${a.review}"` : ''}
+                  </div>
+                  <div className="muted">{new Date(a.created_at).toLocaleString()}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   )
 }
