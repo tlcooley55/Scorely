@@ -44,6 +44,31 @@ type ApiListResponse<T> = {
 
 type ApiItemResponse<T> = T
 
+const KNOWN_EMAILS_KEY = 'scorely_known_emails'
+
+function readKnownEmails(): Set<string> {
+  try {
+    const raw = localStorage.getItem(KNOWN_EMAILS_KEY)
+    if (!raw) return new Set()
+    const arr = JSON.parse(raw)
+    return new Set(Array.isArray(arr) ? arr.map((s: unknown) => String(s).trim().toLowerCase()) : [])
+  } catch (_) {
+    return new Set()
+  }
+}
+
+function addKnownEmail(email: string): void {
+  try {
+    const e = email.trim().toLowerCase()
+    if (!e) return
+    const set = readKnownEmails()
+    set.add(e)
+    localStorage.setItem(KNOWN_EMAILS_KEY, JSON.stringify(Array.from(set)))
+  } catch (_) {
+    // ignore
+  }
+}
+
 function clampInt(value: unknown, min: number, max: number): number {
   const n = Number(value)
   if (!Number.isFinite(n)) return min
@@ -95,7 +120,11 @@ function App() {
   const [activeTab, setActiveTab] = useState<Tab>('home')
   const [selectedSongId, setSelectedSongId] = useState<string | null>(null)
   const [globalError, setGlobalError] = useState<string | null>(null)
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
   const [authEmail, setAuthEmail] = useState('')
+  const [authUsername, setAuthUsername] = useState('')
+  const [authFirstName, setAuthFirstName] = useState('')
+  const [authLastName, setAuthLastName] = useState('')
   const [authCode, setAuthCode] = useState('')
   const [authBusy, setAuthBusy] = useState(false)
   const [userEmail, setUserEmail] = useState<string | null>(null)
@@ -186,21 +215,94 @@ function App() {
           </>
         ) : (
           <section className="panel signInPanel">
-            <h1>Sign in</h1>
-            <p className="muted">Enter your email and we&rsquo;ll send you a one-time code.</p>
+            {!awaitingCode ? (
+              <div className="authModeSwitch">
+                <button
+                  type="button"
+                  className={authMode === 'signin' ? 'authMode active' : 'authMode'}
+                  onClick={() => {
+                    setAuthMode('signin')
+                    setGlobalError(null)
+                  }}
+                >
+                  Sign in
+                </button>
+                <button
+                  type="button"
+                  className={authMode === 'signup' ? 'authMode active' : 'authMode'}
+                  onClick={() => {
+                    setAuthMode('signup')
+                    setGlobalError(null)
+                  }}
+                >
+                  Sign up
+                </button>
+              </div>
+            ) : null}
+
+            <h1>
+              {awaitingCode ? 'Enter your code' : authMode === 'signup' ? 'Create your account' : 'Welcome back'}
+            </h1>
+            <p className="muted">
+              {awaitingCode
+                ? `We sent a one-time code to ${authEmail.trim()}.`
+                : authMode === 'signup'
+                  ? 'Tell us about yourself. We’ll email you a one-time code to verify.'
+                  : 'Enter your email and we’ll send you a one-time code.'}
+            </p>
 
             <div className="signInForm">
-              <Field label="Email">
-                <input
-                  className="input"
-                  type="email"
-                  placeholder="email@domain.com"
-                  autoComplete="email"
-                  inputMode="email"
-                  value={authEmail}
-                  onChange={(e) => setAuthEmail(e.target.value)}
-                />
-              </Field>
+              {!awaitingCode && authMode === 'signup' ? (
+                <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+                  <Field label="First name">
+                    <input
+                      className="input"
+                      placeholder="Jane"
+                      autoComplete="given-name"
+                      value={authFirstName}
+                      onChange={(e) => setAuthFirstName(e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Last name">
+                    <input
+                      className="input"
+                      placeholder="Doe"
+                      autoComplete="family-name"
+                      value={authLastName}
+                      onChange={(e) => setAuthLastName(e.target.value)}
+                    />
+                  </Field>
+                </div>
+              ) : null}
+
+              {!awaitingCode ? (
+                <Field label="Email">
+                  <input
+                    className="input"
+                    type="email"
+                    placeholder="email@domain.com"
+                    autoComplete="email"
+                    inputMode="email"
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                  />
+                </Field>
+              ) : null}
+
+              {!awaitingCode && authMode === 'signup' ? (
+                <Field label="Username">
+                  <input
+                    className="input"
+                    placeholder="choose a username"
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    value={authUsername}
+                    onChange={(e) => setAuthUsername(e.target.value)}
+                  />
+                </Field>
+              ) : null}
 
               {awaitingCode ? (
                 <Field label="Code from email">
@@ -220,9 +322,26 @@ function App() {
                 type="button"
                 onClick={async () => {
                   const email = authEmail.trim()
+                  const username = authUsername.trim()
+                  const firstName = authFirstName.trim()
+                  const lastName = authLastName.trim()
                   if (!email) {
-                    setGlobalError('Enter an email address to sign in')
+                    setGlobalError('Enter an email address')
                     return
+                  }
+                  if (!awaitingCode && authMode === 'signup') {
+                    if (!firstName || !lastName) {
+                      setGlobalError('Enter your first and last name')
+                      return
+                    }
+                    if (!username) {
+                      setGlobalError('Choose a username')
+                      return
+                    }
+                    if (username.length < 3 || username.length > 50) {
+                      setGlobalError('Username must be 3–50 characters')
+                      return
+                    }
                   }
                   setAuthBusy(true)
                   setGlobalError(null)
@@ -237,6 +356,50 @@ function App() {
                       if (error) throw error
                       setAwaitingCode(false)
                       setAuthCode('')
+                      addKnownEmail(email)
+
+                      // After signup verify, save first/last to user metadata and set username on profile.
+                      if (authMode === 'signup') {
+                        try {
+                          await supabase.auth.updateUser({
+                            data: { first_name: firstName, last_name: lastName },
+                          })
+                        } catch (e) {
+                          console.warn('Could not save name to user metadata:', e)
+                        }
+
+                        if (username) {
+                          try {
+                            let needsSet = false
+                            try {
+                              const existing = await apiFetch<Profile>('/me/profile')
+                              if (!existing.username) needsSet = true
+                            } catch (e) {
+                              const msg = e instanceof Error ? e.message : String(e)
+                              if (msg.includes('404')) needsSet = true
+                            }
+                            if (needsSet) {
+                              await apiFetch('/me/profile', {
+                                method: 'PATCH',
+                                body: { username },
+                              })
+                            }
+                          } catch (e) {
+                            const msg = e instanceof Error ? e.message : String(e)
+                            if (msg.includes('409')) {
+                              setGlobalError(
+                                `Username "${username}" is taken. You can change it in Profile.`,
+                              )
+                            } else {
+                              console.warn('Could not auto-set username:', e)
+                            }
+                          }
+                        }
+                      }
+
+                      setAuthUsername('')
+                      setAuthFirstName('')
+                      setAuthLastName('')
                     } else {
                       const { error } = await supabase.auth.signInWithOtp({
                         email,
@@ -255,7 +418,7 @@ function App() {
                 }}
                 disabled={authBusy}
               >
-                {awaitingCode ? 'Verify code' : 'Send code'}
+                {awaitingCode ? 'Verify code' : authMode === 'signup' ? 'Create account' : 'Send code'}
               </button>
 
               {awaitingCode ? (
