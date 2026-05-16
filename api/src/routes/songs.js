@@ -5,9 +5,9 @@ const { parseIntParam, pagination, isUuid } = require('../lib/http')
 
 const router = express.Router()
 
-async function lookupItunesAlbumArt({ title, artist }) {
+async function lookupItunesSong({ title, artist }) {
   const q = [title, artist].filter(Boolean).join(' ').trim()
-  if (!q) return null
+  if (!q) return { albumArt: null, releaseYear: null }
 
   const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=music&entity=song&limit=1`
 
@@ -20,20 +20,29 @@ async function lookupItunesAlbumArt({ title, artist }) {
       signal: controller.signal,
     })
 
-    if (!res.ok) return null
+    if (!res.ok) return { albumArt: null, releaseYear: null }
     const json = await res.json().catch(() => null)
     const item = json && Array.isArray(json.results) && json.results.length ? json.results[0] : null
-    const art = item && typeof item.artworkUrl100 === 'string' ? item.artworkUrl100 : null
-    if (!art) return null
+    if (!item) return { albumArt: null, releaseYear: null }
 
-    // Prefer a higher-res image when possible.
-    return art.replace(/\/100x100bb\./, '/512x512bb.')
+    const rawArt = typeof item.artworkUrl100 === 'string' ? item.artworkUrl100 : null
+    const albumArt = rawArt ? rawArt.replace(/\/100x100bb\./, '/512x512bb.') : null
+
+    let releaseYear = null
+    if (typeof item.releaseDate === 'string' && item.releaseDate.length >= 4) {
+      const y = Number(item.releaseDate.slice(0, 4))
+      if (Number.isInteger(y) && y > 1900 && y < 2100) releaseYear = y
+    }
+
+    return { albumArt, releaseYear }
   } catch (_) {
-    return null
+    return { albumArt: null, releaseYear: null }
   } finally {
     clearTimeout(timeout)
   }
 }
+
+module.exports.lookupItunesSong = lookupItunesSong
 
 router.get('/', async (req, res, next) => {
   try {
@@ -77,14 +86,20 @@ router.post('/', async (req, res, next) => {
       return res.status(422).json({ message: 'Validation failed' })
     }
 
-    const resolvedAlbumArt =
-      album_art && typeof album_art === 'string' && album_art.trim()
-        ? album_art.trim()
-        : await lookupItunesAlbumArt({ title, artist })
+    const hasProvidedArt = album_art && typeof album_art === 'string' && album_art.trim()
+    const hasProvidedYear = Number.isInteger(release_year)
+    let resolvedAlbumArt = hasProvidedArt ? album_art.trim() : null
+    let resolvedReleaseYear = hasProvidedYear ? release_year : null
+
+    if (!hasProvidedArt || !hasProvidedYear) {
+      const itunes = await lookupItunesSong({ title, artist })
+      if (!hasProvidedArt) resolvedAlbumArt = itunes.albumArt
+      if (!hasProvidedYear) resolvedReleaseYear = itunes.releaseYear
+    }
 
     const { data, error } = await supabaseAdmin
       .from('songs')
-      .insert({ title, artist, album_art: resolvedAlbumArt, genre, release_year })
+      .insert({ title, artist, album_art: resolvedAlbumArt, genre, release_year: resolvedReleaseYear })
       .select('song_id, title, artist, album_art, genre, release_year, created_at')
       .single()
 
@@ -110,18 +125,26 @@ router.get('/:songId', async (req, res, next) => {
     if (sErr) return next(sErr)
     if (!song) return res.status(404).json({ message: 'Resource not found' })
 
-    if (!song.album_art || (typeof song.album_art === 'string' && !song.album_art.trim())) {
-      const resolvedAlbumArt = await lookupItunesAlbumArt({ title: song.title, artist: song.artist })
-      if (resolvedAlbumArt) {
+    const missingArt = !song.album_art || (typeof song.album_art === 'string' && !song.album_art.trim())
+    const missingYear = !song.release_year
+    if (missingArt || missingYear) {
+      const { albumArt, releaseYear } = await lookupItunesSong({ title: song.title, artist: song.artist })
+      const patch = {}
+      if (missingArt && albumArt) patch.album_art = albumArt
+      if (missingYear && releaseYear) patch.release_year = releaseYear
+      if (Object.keys(patch).length) {
         const { data: updated, error: uErr } = await supabaseAdmin
           .from('songs')
-          .update({ album_art: resolvedAlbumArt })
+          .update(patch)
           .eq('song_id', songId)
           .select('song_id, title, artist, album_art, genre, release_year, created_at')
           .maybeSingle()
 
         if (uErr) return next(uErr)
-        if (updated) song.album_art = updated.album_art
+        if (updated) {
+          song.album_art = updated.album_art
+          song.release_year = updated.release_year
+        }
       }
     }
 

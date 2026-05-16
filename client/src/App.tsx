@@ -136,35 +136,9 @@ function App() {
           <div className="brandTitle">Scorely</div>
           <div className="brandSubtitle">Rate. Save. Discover.</div>
         </div>
-        <div className="auth">
-          {userEmail ? (
-            <>
-              <div className="authStatus">Signed in as {userEmail}</div>
-              <button
-                className="tab"
-                type="button"
-                onClick={async () => {
-                  setAuthBusy(true)
-                  setGlobalError(null)
-                  try {
-                    await supabase.auth.signOut()
-                    setAwaitingCode(false)
-                    setAuthCode('')
-                  } catch (err) {
-                    console.error('Supabase signOut failed:', err)
-                    setGlobalError(toErrorMessage(err))
-                  } finally {
-                    setAuthBusy(false)
-                  }
-                }}
-                disabled={authBusy}
-              >
-                Sign out
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="authStatus">Sign in</div>
+        {userEmail ? null : (
+          <div className="auth">
+            <div className="authStatus">Sign in</div>
               <input
                 className="input"
                 placeholder="email@domain.com"
@@ -221,23 +195,22 @@ function App() {
               >
                 {awaitingCode ? 'Verify code' : 'Send code'}
               </button>
-              {awaitingCode ? (
-                <button
-                  className="tab"
-                  type="button"
-                  onClick={() => {
-                    setAwaitingCode(false)
-                    setAuthCode('')
-                    setGlobalError(null)
-                  }}
-                  disabled={authBusy}
-                >
-                  Back
-                </button>
-              ) : null}
-            </>
-          )}
-        </div>
+            {awaitingCode ? (
+              <button
+                className="tab"
+                type="button"
+                onClick={() => {
+                  setAwaitingCode(false)
+                  setAuthCode('')
+                  setGlobalError(null)
+                }}
+                disabled={authBusy}
+              >
+                Back
+              </button>
+            ) : null}
+          </div>
+        )}
         {userEmail ? (
           <nav className="tabs">
             <TabButton active={activeTab === 'home'} onClick={() => setActiveTab('home')}>
@@ -293,6 +266,33 @@ function App() {
           </section>
         )}
       </main>
+
+      {userEmail ? (
+        <footer className="footer">
+          <div className="footerStatus">Signed in as <strong>{userEmail}</strong></div>
+          <button
+            className="btn secondary"
+            type="button"
+            onClick={async () => {
+              setAuthBusy(true)
+              setGlobalError(null)
+              try {
+                await supabase.auth.signOut()
+                setAwaitingCode(false)
+                setAuthCode('')
+              } catch (err) {
+                console.error('Supabase signOut failed:', err)
+                setGlobalError(toErrorMessage(err))
+              } finally {
+                setAuthBusy(false)
+              }
+            }}
+            disabled={authBusy}
+          >
+            Sign out
+          </button>
+        </footer>
+      ) : null}
     </div>
   )
 }

@@ -23,34 +23,7 @@ function normalizeUuid(input) {
   return raw
 }
 
-async function lookupItunesAlbumArt({ title, artist }) {
-  const q = [title, artist].filter(Boolean).join(' ').trim()
-  if (!q) return null
-
-  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=music&entity=song&limit=1`
-
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 2500)
-  try {
-    const res = await fetch(url, {
-      method: 'GET',
-      headers: { accept: 'application/json' },
-      signal: controller.signal,
-    })
-
-    if (!res.ok) return null
-    const json = await res.json().catch(() => null)
-    const item = json && Array.isArray(json.results) && json.results.length ? json.results[0] : null
-    const art = item && typeof item.artworkUrl100 === 'string' ? item.artworkUrl100 : null
-    if (!art) return null
-
-    return art.replace(/\/100x100bb\./, '/512x512bb.')
-  } catch (_) {
-    return null
-  } finally {
-    clearTimeout(timeout)
-  }
-}
+const { lookupItunesSong } = require('./songs')
 
 async function listTopSongsForUser(userId, res, next) {
   try {
@@ -64,20 +37,24 @@ async function listTopSongsForUser(userId, res, next) {
 
     if (error) return next(error)
 
-    // Best-effort: backfill album_art for any songs missing it so the Top 5 UI can show thumbnails.
+    // Best-effort: backfill missing album_art and release_year so the Top 5 UI can show full details.
     if (Array.isArray(data) && data.length) {
       const missing = data
         .map((t) => t && t.songs)
-        .filter((s) => s && !s.album_art && s.song_id && (s.title || s.artist))
+        .filter((s) => s && s.song_id && (s.title || s.artist) && (!s.album_art || !s.release_year))
         .slice(0, 5)
 
       await Promise.all(
         missing.map(async (s) => {
-          const art = await lookupItunesAlbumArt({ title: s.title, artist: s.artist })
-          if (!art) return
+          const { albumArt, releaseYear } = await lookupItunesSong({ title: s.title, artist: s.artist })
+          const patch = {}
+          if (!s.album_art && albumArt) patch.album_art = albumArt
+          if (!s.release_year && releaseYear) patch.release_year = releaseYear
+          if (!Object.keys(patch).length) return
 
-          await supabaseAdmin.from('songs').update({ album_art: art }).eq('song_id', s.song_id)
-          s.album_art = art
+          await supabaseAdmin.from('songs').update(patch).eq('song_id', s.song_id)
+          if (patch.album_art) s.album_art = patch.album_art
+          if (patch.release_year) s.release_year = patch.release_year
         })
       )
     }

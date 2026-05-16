@@ -125,6 +125,36 @@
   outline-offset: 2px;
 }
 
+/* ---------- Footer (signed-in chrome) ---------- */
+.footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+  background: color-mix(in oklab, var(--bg) 80%, transparent);
+  backdrop-filter: saturate(160%) blur(14px);
+  -webkit-backdrop-filter: saturate(160%) blur(14px);
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+}
+.footerStatus {
+  font-size: 13px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.footerStatus strong { color: var(--text-h); font-weight: 600; }
+
+@media (max-width: 720px) {
+  .footer { padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); }
+}
+
 /* ---------- Main / panels ---------- */
 .main {
   flex: 1;
