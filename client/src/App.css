@@ -400,6 +400,20 @@ select.input {
   outline-offset: 2px;
 }
 
+/* ---------- Sign in ---------- */
+.signInPanel {
+  max-width: 440px;
+  width: 100%;
+  margin: 24px auto 0;
+}
+.signInForm {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 16px;
+}
+.signInForm .btn { width: 100%; }
+
 /* ---------- Hero / Home ---------- */
 .hero { padding: 28px 22px; }
 .heroEyebrow {

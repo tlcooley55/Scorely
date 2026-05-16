@@ -136,81 +136,6 @@ function App() {
           <div className="brandTitle">Scorely</div>
           <div className="brandSubtitle">Rate. Save. Discover.</div>
         </div>
-        {userEmail ? null : (
-          <div className="auth">
-            <div className="authStatus">Sign in</div>
-              <input
-                className="input"
-                placeholder="email@domain.com"
-                value={authEmail}
-                onChange={(e) => setAuthEmail(e.target.value)}
-              />
-              {awaitingCode ? (
-                <input
-                  className="input"
-                  placeholder="Enter code"
-                  value={authCode}
-                  onChange={(e) => setAuthCode(e.target.value)}
-                />
-              ) : null}
-              <button
-                className="tab"
-                type="button"
-                onClick={async () => {
-                  const email = authEmail.trim()
-                  if (!email) {
-                    setGlobalError('Enter an email address to sign in')
-                    return
-                  }
-                  setAuthBusy(true)
-                  setGlobalError(null)
-                  try {
-                    if (awaitingCode) {
-                      const token = authCode.trim()
-                      if (!token) {
-                        setGlobalError('Enter the code from your email')
-                        return
-                      }
-                      const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' })
-                      if (error) throw error
-                      setAwaitingCode(false)
-                      setAuthCode('')
-                    } else {
-                      const { error } = await supabase.auth.signInWithOtp({
-                        email,
-                        options: { emailRedirectTo: window.location.origin },
-                      })
-                      if (error) throw error
-                      setAwaitingCode(true)
-                      setGlobalError('Check your email for the login code/link, then return to this tab.')
-                    }
-                  } catch (err) {
-                    console.error('Supabase auth failed:', err)
-                    setGlobalError(toErrorMessage(err))
-                  } finally {
-                    setAuthBusy(false)
-                  }
-                }}
-                disabled={authBusy}
-              >
-                {awaitingCode ? 'Verify code' : 'Send code'}
-              </button>
-            {awaitingCode ? (
-              <button
-                className="tab"
-                type="button"
-                onClick={() => {
-                  setAwaitingCode(false)
-                  setAuthCode('')
-                  setGlobalError(null)
-                }}
-                disabled={authBusy}
-              >
-                Back
-              </button>
-            ) : null}
-          </div>
-        )}
         {userEmail ? (
           <nav className="tabs">
             <TabButton active={activeTab === 'home'} onClick={() => setActiveTab('home')}>
@@ -260,9 +185,94 @@ function App() {
             {activeTab === 'profile' ? <ProfileView onError={setGlobalError} /> : null}
           </>
         ) : (
-          <section className="panel">
+          <section className="panel signInPanel">
             <h1>Sign in</h1>
-            <p>Enter your email above and click “Send code”.</p>
+            <p className="muted">Enter your email and we&rsquo;ll send you a one-time code.</p>
+
+            <div className="signInForm">
+              <Field label="Email">
+                <input
+                  className="input"
+                  type="email"
+                  placeholder="email@domain.com"
+                  autoComplete="email"
+                  inputMode="email"
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                />
+              </Field>
+
+              {awaitingCode ? (
+                <Field label="Code from email">
+                  <input
+                    className="input"
+                    placeholder="Enter code"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    value={authCode}
+                    onChange={(e) => setAuthCode(e.target.value)}
+                  />
+                </Field>
+              ) : null}
+
+              <button
+                className="btn"
+                type="button"
+                onClick={async () => {
+                  const email = authEmail.trim()
+                  if (!email) {
+                    setGlobalError('Enter an email address to sign in')
+                    return
+                  }
+                  setAuthBusy(true)
+                  setGlobalError(null)
+                  try {
+                    if (awaitingCode) {
+                      const token = authCode.trim()
+                      if (!token) {
+                        setGlobalError('Enter the code from your email')
+                        return
+                      }
+                      const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' })
+                      if (error) throw error
+                      setAwaitingCode(false)
+                      setAuthCode('')
+                    } else {
+                      const { error } = await supabase.auth.signInWithOtp({
+                        email,
+                        options: { emailRedirectTo: window.location.origin },
+                      })
+                      if (error) throw error
+                      setAwaitingCode(true)
+                      setGlobalError('Check your email for the login code, then return to this tab.')
+                    }
+                  } catch (err) {
+                    console.error('Supabase auth failed:', err)
+                    setGlobalError(toErrorMessage(err))
+                  } finally {
+                    setAuthBusy(false)
+                  }
+                }}
+                disabled={authBusy}
+              >
+                {awaitingCode ? 'Verify code' : 'Send code'}
+              </button>
+
+              {awaitingCode ? (
+                <button
+                  className="btn secondary"
+                  type="button"
+                  onClick={() => {
+                    setAwaitingCode(false)
+                    setAuthCode('')
+                    setGlobalError(null)
+                  }}
+                  disabled={authBusy}
+                >
+                  Back
+                </button>
+              ) : null}
+            </div>
           </section>
         )}
       </main>
